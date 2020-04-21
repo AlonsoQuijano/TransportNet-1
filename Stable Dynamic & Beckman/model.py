@@ -21,6 +21,7 @@ class Model:
         self.rho = rho
         
     def find_equilibrium(self, solver_name = 'ustf', solver_kwargs = {}, verbose = False):
+        print('start!\n')
         if solver_name == 'fwa':
             solver_func = fwa.frank_wolfe_algorithm
             starting_msg = 'Frank-Wolfe algorithm...'

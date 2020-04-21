@@ -83,6 +83,7 @@ class AutomaticOracle(BaseOracle):
     
     def update_shortest_paths(self, t_parameter):
         self.distances, self.pred_map = self.graph.shortest_distances(self.source_index, self.corr_targets, t_parameter)
+        print('hmm: ', self.distances, self.pred_map)
 
 
 class PhiBigOracle(BaseOracle):

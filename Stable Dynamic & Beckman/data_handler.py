@@ -146,4 +146,3 @@ class DataHandler:
             array[index] = 1.0
 
         return array
-
