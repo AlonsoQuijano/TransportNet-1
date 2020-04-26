@@ -19,7 +19,7 @@ class DataHandler:
                               "[a-zA-Z ]+"
                               "[\(\)\/\w]*").findall(data)
 
-        my_headlist = ['Init node', 'Term node', 'Capacity', 'Free Flow Time']
+        my_headlist = ['Init node', 'Term node', 'Capacity', 'length', 'Free Flow Time']
 
         datalist = re.compile("[\t0-9.]+\t;").findall(data)
 
@@ -38,6 +38,8 @@ class DataHandler:
 
         # capacities
         df['Capacity'] = pd.to_numeric(df['Capacity'], downcast='float')
+        # length
+        df['length'] = pd.to_numeric(df['length'], downcast='float')
         # free flow times
         df['Free Flow Time'] = pd.to_numeric(df['Free Flow Time'], downcast='float')
 
@@ -84,19 +86,15 @@ class DataHandler:
 
     #### Katya multi-stage methods
 
-    def create_T(self, df, n):
-        T = np.full((n, n), np.nan, dtype=np.double)
+    def create_C(self, df, n, column_name):
+        C = np.full((n, n), np.nan, dtype=np.double)
+        column_ind = df.columns.get_loc(column_name)
 
-        i_matrix = df['Init node'].as_matrix()
-        j_matrix = df['Term node'].as_matrix()
+        for index, raw_data_line in df.iterrows():
+            i, j = int(raw_data_line[0]) - 1, int(raw_data_line[1]) - 1
 
-        for i in i_matrix:
-            for j in j_matrix:
-                data = df.loc[(df['Init node'] == i) &
-                              (df['Term node'] == j)]
-                if not data.empty:
-                    T[i - 1][j - 1] = data['Free Flow Time'].as_matrix()[0]
-        return T
+            C[i, j] = raw_data_line[column_ind]
+        return C
 
     def from_dict_to_cor_matr(self, dictnr, n):
         correspondence_matrix = np.full((n, n), np.nan, dtype=np.double)
