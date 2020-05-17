@@ -29,6 +29,7 @@ class TransportGraph:
         #adding edges to the graph
         inits = np.array(graph_table[['Init node']], dtype = 'int64').flatten()
         terms = np.array(graph_table[['Term node']], dtype = 'int64').flatten()
+
         for index in range(self.links_number):
             init_index = graph_table['Init node'][index] - 1
             term_index = graph_table['Term node'][index] - 1

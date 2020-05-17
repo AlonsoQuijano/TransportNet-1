@@ -2,7 +2,7 @@ from scanf import scanf
 import re
 import numpy as np
 import pandas as pd
-
+import transport_graph as tg
 
 # TODO: DOCUMENTATION!!!
 class DataHandler:
@@ -144,3 +144,29 @@ class DataHandler:
             array[index] = 1.0
 
         return array
+
+    def get_T_from_shortest_distances(self, n, graph_data):
+
+        targets = []
+        df = graph_data['graph_table']
+        T = None
+        i = 0
+        for source in range(n):
+
+            targets = [source]
+            targets += range(0, n)
+
+            graph = tg.TransportGraph(graph_data)
+            t_exp = np.array(df['Free Flow Time'], dtype='float64').flatten()
+            distances, pred_map = graph.shortest_distances(source=source,
+                                                           targets=targets,
+                                                           times=t_exp)
+
+            if i == 0:
+                T = distances[1:]
+            else:
+                T = np.vstack([T, distances[1:]])
+            targets = []
+            i += 1
+
+        return T

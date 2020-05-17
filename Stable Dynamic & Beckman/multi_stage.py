@@ -3,10 +3,14 @@ import numpy as np
 import sinkhorn as skh
 import data_handler as dh
 
-best_sink_beta = 7400
+best_sink_beta = 2.5402
 net_name = 'data/EMA_net.tntp'
 trips_name = 'data/EMA_trips.tntp'
-sink_num_iter, sink_eps = 2500, 10**(-3)
+sink_num_iter, sink_eps = 3000, 10**(-3)
+
+corr_5000  = np.loadtxt('KEV_res//corr_5000_new.txt')
+flows_5000 = np.loadtxt('KEV_res//flows_5000_new.txt')
+times_5000 = np.loadtxt('KEV_res//times_5000_new.txt')
 
 
 def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_oracle,
@@ -20,11 +24,16 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
         L_value = np.linalg.norm(phi_big_oracle.grad(t_start))
     
     A = 0.0
-    t_prev = np.copy(t_start)
+
     t = None
+    t_prev = np.copy(t_start)
+
+    t_d = []
+    flows_w_d = []
     
     grad_sum = np.zeros(len(t_start))
     flows_weighted = np.zeros(len(t_start))
+    flows_weighted_prev = np.copy(flows_weighted)
     
     duality_gap_init = None
 
@@ -37,20 +46,19 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
 
     # multi-stage
 
-    # print('ugd!', phi_big_oracle.correspondences)
-
     handler = dh.DataHandler()
     graph_data = handler.GetGraphData(net_name, columns_order=np.array([0, 1, 2, 3, 4]))
     graph_correspondences, total_od_flow = handler.GetGraphCorrespondences(trips_name)
 
     n = np.max(graph_data['graph_table']['Init node'].as_matrix())
-    df = graph_data['graph_table']
+    # df = graph_data['graph_table']
 
     correspondence_matrix = handler.from_dict_to_cor_matr(graph_correspondences, n)
-    T = handler.create_C(df, n, column_name='Free Flow Time')
+    T = handler.get_T_from_shortest_distances(n, graph_data)
+    lambda_L = np.full((n, ), 0.0, dtype=np.double)
+    lambda_W = np.full((n, ), 0.0, dtype=np.double)
 
-    # C = handler.create_C(df, n, column_name='length')
-    # np.savetxt('data/T.csv', T, delimiter=',')
+    # T = handler.create_C(df, n, column_name='Free Flow Time')
 
     L = np.nansum(correspondence_matrix, axis=1)
     W = np.nansum(correspondence_matrix, axis=0)
@@ -63,16 +71,21 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
     L = L / np.nansum(L)
     W = W / np.nansum(W)
 
+    # s = skh.Sinkhorn(n, L, W, people_num, sink_num_iter, sink_eps)
+    # cost_matrix = np.nan_to_num(T * best_sink_beta, nan=100)
+    # rec = s.iterate(cost_matrix)
+
+    rec_prev = np.zeros((n, n))
+    rec_d = []
 
     for it_counter in range(1, max_iter + 1):
 
         # corr reconstruction
         s = skh.Sinkhorn(n, L, W, people_num, sink_num_iter, sink_eps)
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=100)
-        rec = s.iterate(cost_matrix)
+        rec, lambda_L, lambda_W = s.iterate(cost_matrix, lambda_L, lambda_W)
 
         sink_correcpondences_dict = handler.from_cor_matrix_to_dict(rec)
-
         phi_big_oracle.correspondences = sink_correcpondences_dict
 
 
@@ -85,7 +98,9 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
             t = prox_h(t_prev - alpha * phi_grad_t, alpha)
 
             if it_counter == 1 and inner_iters_num == 1:
+
                 flows_weighted = - phi_grad_t
+
                 duality_gap_init = primal_dual_oracle.duality_gap(t, flows_weighted)
                 if eps_abs is None:
                     eps_abs = eps * duality_gap_init
@@ -106,8 +121,7 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
                 inner_iters_num += 1
 
         L_value /= 2
-        
-        t_prev = t
+
         A += alpha
         grad_sum += alpha * phi_grad_t
         flows_weighted = - grad_sum / A
@@ -115,6 +129,26 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
         primal_func_value = primal_dual_oracle.primal_func_value(flows_weighted)
         dual_func_value = primal_dual_oracle.dual_func_value(t)
         duality_gap = primal_dual_oracle.duality_gap(t, flows_weighted)
+
+        # t_d.append(np.linalg.norm(times_5000 - t_prev))
+        np.savetxt('KEV_res//arrays/times//' + str(it_counter) + '.txt', t)
+        t_prev = t
+        # print('t:', np.linalg.norm(times_5000 - t_prev))
+
+        np.savetxt('KEV_res//arrays/flows//' + str(it_counter) + '.txt', flows_weighted)
+        # print('flows:', np.linalg.norm(flows_5000 - flows_weighted_prev))
+        # flows_w_d.append(np.linalg.norm(flows_5000 - flows_weighted_prev))
+        # flows_weighted_prev = np.copy(flows_weighted)
+
+        np.savetxt('KEV_res//arrays/corrs//' + str(it_counter) + '.txt', rec)
+
+        # print('rec:', np.linalg.norm(corr_5000 - rec_prev))
+        # rec_d.append((np.linalg.norm(corr_5000 - rec_prev)))
+        # rec_prev = rec
+
+
+
+        print('i: ', it_counter)
         
         primal_func_history.append(primal_func_value)
         dual_func_history.append(dual_func_value)
@@ -134,14 +168,25 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
             print('Duality_gap / Duality_gap_init = {:g}'.format(duality_gap / duality_gap_init))
 
 
-        # new T = t creation
+        # new T = shortest_distances creation
+
         graph_data['graph_table']['Free Flow Time'] = t
-        T = handler.create_C(graph_data['graph_table'],
-                             n, column_name='Free Flow Time')
+        T = handler.get_T_from_shortest_distances(n, graph_data)
+
+        # T_prev = T
+
+        # T = handler.create_C(graph_data['graph_table'],
+        #                      n, column_name='Free Flow Time')
+
+        # print('t:', t)
 
             
     result = {'times': t,
+              # 'times_diff': t_d,
               'flows': flows_weighted,
+              # 'flows_diff': flows_w_d,
+              'corr' : rec,
+              # 'corr_diff': rec_d,
               'iter_num': it_counter,
               'duality_gap_history': duality_gap_history,
               'inner_iters_history': inner_iters_history,

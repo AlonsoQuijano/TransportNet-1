@@ -26,7 +26,9 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
         
     success = False
     
-    for it_counter in range(1,max_iter+1):
+    for it_counter in range(1, max_iter+1):
+        # print('ugd: ', it_counter, max_iter)
+
         inner_iters_num = 1
         while True:
             alpha = 1 / L_value
@@ -71,9 +73,9 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
         duality_gap_history.append(duality_gap)
         inner_iters_history.append(inner_iters_num)
         
-        #if duality_gap < eps_abs:
-        #    success = True
-        #    break
+        if duality_gap < eps_abs:
+           success = True
+           break
         
         if verbose and (it_counter == 1 or (it_counter) % iter_step == 0):
             print('\nIterations number: ' + str(it_counter))

@@ -41,10 +41,7 @@ class Sinkhorn:
 
         return lambda_W, lambda_L
 
-    def iterate(self, cost_matrix):
-
-        lambda_L = np.full((self.n,), 0.0, dtype=np.double)
-        lambda_W = np.full((self.n,), 0.0, dtype=np.double)
+    def iterate(self, cost_matrix, lambda_L, lambda_W):
 
         lambda_Ln = np.full((self.n,), 0.0, dtype=np.double)
         lambda_Wn = np.full((self.n,), 0.0, dtype=np.double)
@@ -62,7 +59,7 @@ class Sinkhorn:
                 break
 
         r = self.rec_d_i_j(lambda_Ln, lambda_Wn, cost_matrix)
-        return r
+        return r, lambda_L, lambda_W
 
     def rec_d_i_j(self, lambda_L, lambda_W, cost_matrix):
         er = np.exp(-1 - cost_matrix - (np.reshape(lambda_L, (self.n, 1)) + lambda_W))

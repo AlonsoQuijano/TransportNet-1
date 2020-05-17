@@ -56,9 +56,10 @@ def universal_similar_triangles_function(phi_big_oracle, prox_h, primal_dual_ora
         
     success = False
     
-    for it_counter in range(1,max_iter+1):
+    for it_counter in range(1, max_iter+1):
         inner_iters_num = 1
         while True:
+
             alpha = 0.5 / L_value + sqrt(0.25 / L_value**2 + A_prev / L_value)
             A = A_prev + alpha
 
@@ -87,7 +88,6 @@ def universal_similar_triangles_function(phi_big_oracle, prox_h, primal_dual_ora
             else:
                 L_value *= 2
                 inner_iters_num += 1
-
                     
         A_prev = A
         L_value /= 2

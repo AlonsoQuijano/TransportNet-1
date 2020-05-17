@@ -32,7 +32,7 @@ if __name__ == '__main__':
     model = md.Model(graph_data, graph_correspondences,
                      total_od_flow, mu=0.25, rho=0.15)
 
-    max_iter = 100
+    max_iter = 10000
 
     for i, eps_abs in enumerate(np.logspace(1, 3, 1)):
         print('eps_abs =', eps_abs)
