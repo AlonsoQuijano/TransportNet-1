@@ -38,7 +38,7 @@ if __name__ == '__main__':
         print('eps_abs =', eps_abs)
         solver_kwargs = {'eps_abs': eps_abs,
                          'max_iter': max_iter}
-        tic = time.time()
+
         result = model.find_equilibrium(solver_name='multi-stage',
                                         solver_kwargs=solver_kwargs,
                                         verbose=False)

@@ -3,12 +3,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import rc
-from scipy.stats import entropy
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d, Axes3D
 np.set_printoptions(suppress=True)
+import os
 
 
 class Sinkhorn:
@@ -20,6 +16,7 @@ class Sinkhorn:
         self.people_num = people_num
         self.num_iter = iter_num
         self.eps = eps
+        self.multistage_i = 0
 
     def sinkhorn(self, k, cost_matrix, lambda_W_prev, lambda_L_prev):
 
@@ -45,6 +42,7 @@ class Sinkhorn:
 
         lambda_Ln = np.full((self.n,), 0.0, dtype=np.double)
         lambda_Wn = np.full((self.n,), 0.0, dtype=np.double)
+        # r = None
 
         for k in range(self.num_iter):
 
@@ -59,6 +57,17 @@ class Sinkhorn:
                 break
 
         r = self.rec_d_i_j(lambda_Ln, lambda_Wn, cost_matrix)
+            
+            # if not os.path.exists('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'):
+            #     os.makedirs('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//')
+            #     np.savetxt('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'
+            #                + str(k) + '.txt', r)
+            # else:
+            #     np.savetxt('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'
+            #                + str(k) + '.txt', r)
+
+        self.multistage_i += 1
+
         return r, lambda_L, lambda_W
 
     def rec_d_i_j(self, lambda_L, lambda_W, cost_matrix):

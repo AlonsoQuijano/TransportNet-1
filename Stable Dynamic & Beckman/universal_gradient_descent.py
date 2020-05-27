@@ -1,9 +1,13 @@
 from math import sqrt
 import numpy as np
+import os
+import time
 
-def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_oracle,
+
+def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_oracle, multistage_i,
                                          t_start, L_init = None, max_iter = 1000,
-                                         eps = 1e-5, eps_abs = None, verbose = False):
+                                         eps = 1e-5, eps_abs = None, verbose = False,
+                                        ):
     iter_step = 100
     if L_init is not None:
         L_value = L_init
@@ -84,7 +88,24 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
             print('Dual_func_value = {:g}'.format(dual_func_value))
             print('Duality_gap = {:g}'.format(duality_gap))
             print('Duality_gap / Duality_gap_init = {:g}'.format(duality_gap / duality_gap_init))
-            
+
+
+        # if not os.path.exists('KEV_res//iter_arrays/times//' + str(multistage_i) + '//'):
+        #     os.makedirs('KEV_res//iter_arrays/times//' + str(multistage_i) + '//')
+        #     np.savetxt('KEV_res//iter_arrays/times//' + str(multistage_i) + '//'
+        #                + str(it_counter) + '.txt', t)
+        # else:
+        #     np.savetxt('KEV_res//iter_arrays/times//' + str(multistage_i) + '//'
+        #                + str(it_counter) + '.txt', t)
+        # if not os.path.exists('KEV_res//iter_arrays/flows//' + str(multistage_i) + '//'):
+        #     os.makedirs('KEV_res//iter_arrays/flows//' + str(multistage_i) + '//')
+        #     np.savetxt('KEV_res//iter_arrays/flows//' + str(multistage_i) + '//'
+        #                + str(it_counter) + '.txt', flows_weighted)
+        # else:
+        #     np.savetxt('KEV_res//iter_arrays/flows//' + str(multistage_i) + '//'
+        #                + str(it_counter) + '.txt', flows_weighted)
+
+
             
     result = {'times': t,
               'flows': flows_weighted,
@@ -94,7 +115,8 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
               'primal_func_history': primal_func_history,
               'dual_func_history': dual_func_history,
              }
-    
+        
+
     if success:
         result['res_msg'] = 'success'
     else:

@@ -2,6 +2,7 @@ from math import sqrt
 import numpy as np
 import sinkhorn as skh
 import data_handler as dh
+import time
 
 best_sink_beta = 2.5402
 net_name = 'data/EMA_net.tntp'
@@ -30,6 +31,7 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
 
     t_d = []
     flows_w_d = []
+    iteration_t = []
     
     grad_sum = np.zeros(len(t_start))
     flows_weighted = np.zeros(len(t_start))
@@ -80,14 +82,16 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
 
     for it_counter in range(1, max_iter + 1):
 
+        tic = time.time()
+
         # corr reconstruction
         s = skh.Sinkhorn(n, L, W, people_num, sink_num_iter, sink_eps)
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=100)
+
         rec, lambda_L, lambda_W = s.iterate(cost_matrix, lambda_L, lambda_W)
 
         sink_correcpondences_dict = handler.from_cor_matrix_to_dict(rec)
         phi_big_oracle.correspondences = sink_correcpondences_dict
-
 
         inner_iters_num = 1
 
@@ -131,16 +135,16 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
         duality_gap = primal_dual_oracle.duality_gap(t, flows_weighted)
 
         # t_d.append(np.linalg.norm(times_5000 - t_prev))
-        np.savetxt('KEV_res//arrays/times//' + str(it_counter) + '.txt', t)
+        # np.savetxt('KEV_res//arrays/times//' + str(it_counter) + '.txt', t)
         t_prev = t
         # print('t:', np.linalg.norm(times_5000 - t_prev))
 
-        np.savetxt('KEV_res//arrays/flows//' + str(it_counter) + '.txt', flows_weighted)
+        # np.savetxt('KEV_res//arrays/flows//' + str(it_counter) + '.txt', flows_weighted)
         # print('flows:', np.linalg.norm(flows_5000 - flows_weighted_prev))
         # flows_w_d.append(np.linalg.norm(flows_5000 - flows_weighted_prev))
         # flows_weighted_prev = np.copy(flows_weighted)
 
-        np.savetxt('KEV_res//arrays/corrs//' + str(it_counter) + '.txt', rec)
+        # np.savetxt('KEV_res//arrays/corrs//' + str(it_counter) + '.txt', rec)
 
         # print('rec:', np.linalg.norm(corr_5000 - rec_prev))
         # rec_d.append((np.linalg.norm(corr_5000 - rec_prev)))
@@ -180,9 +184,12 @@ def universal_gradient_descent_function(phi_big_oracle, prox_h, primal_dual_orac
 
         # print('t:', t)
 
+        toc = time.time()
+        iteration_t.append(toc-tic)
+        print('Elapsed time: {:.0f} sec'.format(toc - tic), toc-tic)
             
     result = {'times': t,
-              # 'times_diff': t_d,
+              'iteration_t': iteration_t,
               'flows': flows_weighted,
               # 'flows_diff': flows_w_d,
               'corr' : rec,

@@ -111,6 +111,7 @@ class DataHandler:
 
     def from_cor_matrix_to_dict(self, corr_matrix):
         d = {}
+        print(np.shape(corr_matrix))
         n = np.shape(corr_matrix)[0]
         buf_l = []
         buf_ind = []
