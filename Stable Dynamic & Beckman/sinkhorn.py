@@ -57,16 +57,7 @@ class Sinkhorn:
                 break
 
         r = self.rec_d_i_j(lambda_Ln, lambda_Wn, cost_matrix)
-            
-            # if not os.path.exists('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'):
-            #     os.makedirs('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//')
-            #     np.savetxt('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'
-            #                + str(k) + '.txt', r)
-            # else:
-            #     np.savetxt('KEV_res//iter_arrays/corrs//' + str(self.multistage_i) + '//'
-            #                + str(k) + '.txt', r)
-
-        self.multistage_i += 1
+        # self.multistage_i += 1
 
         return r, lambda_L, lambda_W
 
