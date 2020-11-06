@@ -3,8 +3,8 @@ import numpy as np
 from history import History
 
 def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
-                                       t_start, L_init = None, max_iter = 1000,
-                                       eps = 1e-5, eps_abs = None, stop_crit = 'dual_gap_rel',
+                                       t_start, L_init = None, max_iter = 1, #1000,
+                                       eps = 1e-5, eps_abs = None, stop_crit = 'max_iter',
                                        verbose_step = 100, verbose = False, save_history = False):
     if stop_crit == 'dual_gap_rel':
         def crit():
@@ -20,6 +20,8 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
     else:
         raise ValueError("stop_crit should be callable or one of the following names: \
                          'dual_gap', 'dual_gap_rel', 'max iter'")
+
+
     
     L_value = L_init if L_init is not None else np.linalg.norm(oracle.grad(t_start))
     
@@ -43,7 +45,7 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
     success = False
     inner_iters_num = 0
     
-    for it_counter in range(1, max_iter+1):
+    for it_counter in range(1, max_iter):
         while True:
             inner_iters_num += 1
             
@@ -95,6 +97,7 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
         print('Total iters: ' + str(it_counter))
         print(state_msg)
         print('Oracle elapsed time: {:.0f} sec'.format(oracle.time))
+
     return result
 
 #print('Dijkstra elapsed time: {:.0f} sec'.format(oracle.auto_oracles_time))

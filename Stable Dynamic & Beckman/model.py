@@ -21,7 +21,7 @@ class Model:
         self.inds_to_nodes, self.graph_correspondences, graph_table = self._index_nodes(graph_data['graph_table'],
                                                                                         graph_correspondences)
         self.graph = tg.TransportGraph(graph_table, len(self.inds_to_nodes), graph_data['links number'])
-        print('model: ', len(self.inds_to_nodes), graph_data['links number'])
+        # print('model: ', len(self.inds_to_nodes), graph_data['links number'])
         
     def _index_nodes(self, graph_table, graph_correspondences):
         table = graph_table.copy()
@@ -121,7 +121,7 @@ class Model:
 
             targets = self.graph_correspondences[source]['targets']
             travel_times, _ = self.graph.shortest_distances(source, targets, result['times'])
-            print('in model.py, travel_times: ', travel_times)
+            # print('in model.py, travel_times: ', travel_times)
             #mapping nodes' indices to initial nodes' names:
             source_nodes = [self.inds_to_nodes[source]] * len(targets)
             target_nodes = list(map(self.inds_to_nodes.get, targets))
