@@ -21,7 +21,6 @@ class Model:
         self.inds_to_nodes, self.graph_correspondences, graph_table = self._index_nodes(graph_data['graph_table'],
                                                                                         graph_correspondences)
         self.graph = tg.TransportGraph(graph_table, len(self.inds_to_nodes), graph_data['links number'])
-        # print('model: ', len(self.inds_to_nodes), graph_data['links number'])
         
     def _index_nodes(self, graph_table, graph_correspondences):
         table = graph_table.copy()

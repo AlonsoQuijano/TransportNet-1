@@ -3,6 +3,8 @@ import re
 import numpy as np
 import pandas as pd
 import transport_graph as tg
+import copy
+import graph_tool.topology as gtt
 
 #TODO: DOCUMENTATION!!!
 class DataHandler:
@@ -133,7 +135,7 @@ class DataHandler:
 
         return array
 
-    def get_T_from_shortest_distances(self, n, graph_data):
+    def get_t_from_shortest_distances(self, n, graph_data):
 
         targets = []
         df = graph_data['graph_table']
@@ -164,6 +166,54 @@ class DataHandler:
             i += 1
 
         return T
+
+    def _index_nodes(self, graph_table, graph_correspondences):
+        table = graph_table.copy()
+        inits = np.unique(table['init_node'][table['init_node_thru'] == False])
+        terms = np.unique(table['term_node'][table['term_node_thru'] == False])
+        through_nodes = np.unique([table['init_node'][table['init_node_thru'] == True],
+                                   table['term_node'][table['term_node_thru'] == True]])
+
+        nodes = np.concatenate((inits, through_nodes, terms))
+        nodes_inds = list(zip(nodes, np.arange(len(nodes))))
+        init_to_ind = dict(nodes_inds[: len(inits) + len(through_nodes)])
+        term_to_ind = dict(nodes_inds[len(inits):])
+
+        table['init_node'] = table['init_node'].map(init_to_ind)
+        table['term_node'] = table['term_node'].map(term_to_ind)
+        correspondences = {}
+        for origin, dests in graph_correspondences.items():
+            dests = copy.deepcopy(dests)
+            correspondences[init_to_ind[origin]] = {'targets': list(map(term_to_ind.get, dests['targets'])),
+                                                    'corrs': dests['corrs']}
+
+        inds_to_nodes = dict(zip(range(len(nodes)), nodes))
+        return inds_to_nodes, correspondences, table
+
+    def get_T_from_t(self, t, graph_data, graph_correspondences):
+
+        result = {}
+        result['zone travel times'] = {}
+
+        import transport_graph as tg
+
+        inds_to_nodes, graph_correspondences_, graph_table_ = self._index_nodes(graph_data['graph_table'],
+                                                                                   graph_correspondences)
+
+        # print('data handler: ', len(inds_to_nodes), graph_data['links number'])
+        graph_dh = tg.TransportGraph(graph_table_, len(inds_to_nodes), graph_data['links number'])
+
+        for source in graph_correspondences_:
+
+            targets = graph_correspondences_[source]['targets']
+            travel_times, _ = graph_dh.shortest_distances(source, targets, t)
+            # print('in model.py, travel_times: ', travel_times)
+            # mapping nodes' indices to initial nodes' names:
+            source_nodes = [inds_to_nodes[source]] * len(targets)
+            target_nodes = list(map(inds_to_nodes.get, targets))
+            result['zone travel times'].update(zip(zip(source_nodes, target_nodes), travel_times))
+
+        return result
 
     def get_T_new(self, n, T, paycheck):
 
