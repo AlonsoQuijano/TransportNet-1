@@ -57,3 +57,6 @@ class PrimalDualCalculator:
     #for Frank-Wolfe algorithm
     def get_times(self, flows):
         return self.freeflowtimes * (1.0 + self.rho * np.power(flows / self.capacities, 1.0 / self.mu))
+
+    def get_times_inverse_func(self, times):
+        return self.capacities / self.rho * (np.power(times / self.freeflowtimes, self.mu) - 1.0)

@@ -25,8 +25,16 @@ import csv
 net_name = 'SiouxFalls_net.tntp'
 trips_name =  'SiouxFalls_trips.tntp'
 
-# best_sink_beta = 2.5402
+best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10**(-8)
+
+
+def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
+
+    capacities = graph_table['capacity'].as_matrix()
+    freeflowtimes = graph_table['free_flow_time'].as_matrix()
+    # print('hm: ', np.power(times / freeflowtimes, mu))
+    return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
 if __name__ == '__main__':
 
@@ -36,7 +44,7 @@ if __name__ == '__main__':
 
     handler = dh.DataHandler()
 
-    max_iter = 2000
+    max_iter = 2
     alpha = 0.9
     graph_table = graph_data['graph_table']
 
@@ -44,14 +52,15 @@ if __name__ == '__main__':
     print('n: ', n)
     correspondence_matrix = handler.from_dict_to_cor_matr(graph_correspondences, n)
 
-    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],  graph_data, graph_correspondences)  # np.array([[0.0, 0.5], [0.5, 0.0]]) #
+    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],  graph_data, graph_correspondences)
+    # np.array([[0.0, 0.5], [0.5, 0.0]]) #
     T = np.full((n, n), np.inf)
     for key in T_dict['zone travel times'].keys():
         T[key[0] - 1][key[1] - 1] = T_dict['zone travel times'][key]
 
     # print(T)
 
-    best_sink_beta = n / np.nansum(T)
+    # best_sink_beta = n / np.nansum(T)
     T_0 = np.zeros(np.shape(T))
 
     lambda_L = np.full((n,), 0.0, dtype=np.double)
@@ -68,17 +77,16 @@ if __name__ == '__main__':
     L = L / np.nansum(L)
     W = W / np.nansum(W)
 
-
     # print('T after changes: ', T)
 
-    for ms_i in range(100):
+    for ms_i in range(5000):
 
         print('iteration: ', ms_i)
 
         s = skh.Sinkhorn(n, L, W, people_num, sink_num_iter, sink_eps)
         T = np.nan_to_num(T, nan=0, posinf=0, neginf=0)
 
-        best_sink_beta = n / np.nansum(T)
+        # best_sink_beta = n / np.nansum(T)
 
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=100)
         rec, _, _ = s.iterate(cost_matrix, lambda_L, lambda_W)
@@ -119,16 +127,23 @@ if __name__ == '__main__':
         T = T_matrix
         T_0 = T
 
+        flows_inverse_func = get_times_inverse_func(graph_table, result['times'], rho=0.15, mu=0.25)
+
+        subg = result['subg']
+
+        # for key in result['subg'].keys():
+        #     subg[key[0] - 1][key[1] - 1] = result['subg'][key]
+
+        print('subg: ', np.shape(subg), np.shape(flows_inverse_func))
+
         if max_iter == 2:
 
             np.savetxt('KEV_res/multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
             np.savetxt('KEV_res/multi/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
             np.savetxt('KEV_res/multi/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
-
-            with open('KEV_res/multi/corr_matrix/' + str(ms_i) + '_corr_matrix.csv', 'w') as f:
-                w = csv.DictWriter(f, sink_correcpondences_dict.keys())
-                w.writeheader()
-                w.writerow(sink_correcpondences_dict)
+            np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
+                       delimiter=' ')
+            np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')
 
         elif max_iter == 1:
             print('Mistake, should be 2! Counter in ustm starts from 1!')
@@ -137,10 +152,9 @@ if __name__ == '__main__':
             np.savetxt('KEV_res/iter/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
             np.savetxt('KEV_res/iter/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
             np.savetxt('KEV_res/iter/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
-            with open('KEV_res/iter/corr_matrix/' + str(ms_i) + '_corr_matrix.csv', 'w') as f:
-                w = csv.DictWriter(f, sink_correcpondences_dict.keys())
-                w.writeheader()
-                w.writerow(sink_correcpondences_dict)
+            np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
+                       delimiter=' ')
+            np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')
 
     with open('KEV_res/' + 'result.csv', 'w') as f:
         w = csv.DictWriter(f, result.keys())

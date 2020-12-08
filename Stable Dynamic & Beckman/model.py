@@ -80,6 +80,7 @@ class Model:
             raise NotImplementedError('Unknown solver!')
         
         phi_big_oracle = oracles.PhiBigOracle(self.graph, self.graph_correspondences)
+
         h_oracle = oracles.HOracle(self.graph.freeflow_times, self.graph.capacities, 
                                    rho = self.rho, mu = self.mu)
         primal_dual_calculator = dfc.PrimalDualCalculator(phi_big_oracle, h_oracle,
@@ -116,14 +117,25 @@ class Model:
                                  **solver_kwargs)
         #getting travel times of every non-zero trips between zones:
         result['zone travel times'] = {}
+        result['subg'] = {}
+        subg_t = phi_big_oracle.grad(result['times'])
+        # print('att! ', subg_t, np.shape(subg_t))
+        result['subg'] =  subg_t
+
         for source in self.graph_correspondences:
 
             targets = self.graph_correspondences[source]['targets']
-            travel_times, _ = self.graph.shortest_distances(source, targets, result['times'])
+            travel_times, pred_map = self.graph.shortest_distances(source, targets, result['times'])
+
+            subg_t = phi_big_oracle.grad(result['times'])
+
+            # print('types: ', type(subg_t), type(travel_times))
             # print('in model.py, travel_times: ', travel_times)
-            #mapping nodes' indices to initial nodes' names:
+
+            # mapping nodes' indices to initial nodes' names:
             source_nodes = [self.inds_to_nodes[source]] * len(targets)
             target_nodes = list(map(self.inds_to_nodes.get, targets))
+
             result['zone travel times'].update(zip(zip(source_nodes, target_nodes), travel_times))
 
         return result
