@@ -11,7 +11,6 @@ import universal_gradient_descent_method as ugd
 import subgradient_descent_method as sd
 import frank_wolfe_method as fwm
 import weighted_dual_averages_method as wda
-import multi_stage as ms
 
 class Model:
     def __init__(self, graph_data, graph_correspondences, total_od_flow, mu = 0.25, rho = 0.15):
@@ -70,12 +69,6 @@ class Model:
             solver_func = sd.subgradient_descent_method
             starting_msg = 'Subgradient descent method...'
 
-        elif solver_name == 'multi-stage':
-            print('multi-stage model....')
-            solver_func = ms.universal_similar_triangles_method
-            starting_msg = 'Multi-stage universal similar triangles method...'
-            if not 'L_init' in solver_kwargs:
-                solver_kwargs['L_init'] = self.graph.max_path_length**0.5 * self.total_od_flow
         else:
             raise NotImplementedError('Unknown solver!')
         
