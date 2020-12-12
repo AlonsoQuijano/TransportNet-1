@@ -28,8 +28,8 @@ sink_num_iter, sink_eps = 2500, 10**(-8)
 
 def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
 
-    capacities = graph_table['capacity'].as_matrix()
-    freeflowtimes = graph_table['free_flow_time'].as_matrix()
+    capacities = graph_table['capacity'].to_numpy()
+    freeflowtimes = graph_table['free_flow_time'].to_numpy()
     # print('hm: ', np.power(times / freeflowtimes, mu))
     return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     alpha = 0.9
     graph_table = graph_data['graph_table']
 
-    n = np.max(graph_table['init_node'].as_matrix())
+    n = np.max(graph_table['init_node'].to_numpy())
     print('n: ', n)
     correspondence_matrix = handler.from_dict_to_cor_matr(graph_correspondences, n)
 
