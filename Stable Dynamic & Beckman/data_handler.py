@@ -8,9 +8,21 @@ import graph_tool.topology as gtt
 
 #TODO: DOCUMENTATION!!!
 class DataHandler:
-    def GetGraphData(self, file_name, columns):
+    @staticmethod
+    def vladik_net_parser(file_name):
         graph_data = {}
+        links = pd.read_csv(file_name, sep='\t',skiprows=0)
+        links_ab = links[['ANODE', 'BNODE', 'cap_ab', 'LENGTH']]
+        links_ab.columns = ['init_node', 'term_node', 'capacity', 'free_flow_time']
+        links_ba = links[['ANODE', 'BNODE', 'cap_ba', 'LENGTH']]
+        links_ba.columns = ['init_node', 'term_node', 'capacity', 'free_flow_time']
+        df = links_ab.append(links_ba, ignore_index=True)
+        # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
 
+        return df, 1
+
+    @staticmethod
+    def tntp_net_parser(file_name):
         metadata = ''
         with open(file_name, 'r') as myfile:
             for index, line in enumerate(myfile):
@@ -20,9 +32,12 @@ class DataHandler:
                     break
                 else:
                     metadata += line
-        graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
-        graph_data['links number'] = scanf('<NUMBER OF LINKS> %d', metadata)[0]
-        graph_data['zones number'] = scanf('<NUMBER OF ZONES> %d', metadata)[0]
+
+        graph_data = {}
+        nn = scanf('<NUMBER OF NODES> %d', metadata)[0]
+        nl = scanf('<NUMBER OF LINKS> %d', metadata)[0]
+        nz = scanf('<NUMBER OF ZONES> %d', metadata)[0]
+        print('NUMBER OF NODES, LINKS, ZONES: ', nn, nl, nz)
         first_thru_node = scanf('<FIRST THRU NODE> %d', metadata)[0]
 
         dtypes = {'init_node' : np.int32, 'term_node' : np.int32, 'capacity' : np.float64, 'length': np.float64,
@@ -30,19 +45,50 @@ class DataHandler:
                   'link_type' : np.int32}
         df = pd.read_csv(file_name, names = headlist, dtype = dtypes, skiprows = skip_lines, sep = r'[\s;]+', engine='python',
                          index_col = False)
-        df = df[columns]
+        return df, first_thru_node
 
+    def GetGraphData(self, file_name, parser, columns):
+        
+        graph_data = {}
+        df, first_thru_node = parser(file_name)
+        df = df[columns]
         df.insert(loc = list(df).index('init_node') + 1, column = 'init_node_thru', value = (df['init_node'] >= first_thru_node))
         df.insert(loc = list(df).index('term_node') + 1, column = 'term_node_thru', value = (df['term_node'] >= first_thru_node))
         graph_data['graph_table'] = df
-        return graph_data
+        graph_data['nodes number'] = len(set(df.init_node.values) | set(df.term_node.values))
+        graph_data['links number'] = df.shape[0]
+        graph_data['zones number'] = graph_data['nodes number'] # nodes in corr graph actually
+        print('nUMBER OF NODES, LINKS, ZONES: ', graph_data['nodes number'], 
+            graph_data['links number'], graph_data['zones number'])
+        return graph_data 
+        
+    @staticmethod
+    def vladik_corr_parser(file_name):
+        graph_correspondences = {}
+        od = 0
+        with open(file_name, 'r') as fin:
+            fin = list(fin)[1:]
+            for line in fin:
+                frm, to, load = [float(x) for x in line.split(',')]
+
+                if frm not in graph_correspondences:
+                    graph_correspondences[frm] = {'targets':[], 'corrs': []}
+
+                graph_correspondences[frm]['targets'].append(to)
+                graph_correspondences[frm]['corrs'].append(load)
+                od += load
+
+            return graph_correspondences#, od
 
 
-    def GetGraphCorrespondences(self, file_name):
+        
+    @staticmethod
+    def tntp_corr_parser(file_name):
         with open(file_name, 'r') as myfile:
             trips_data = myfile.read()
 
         total_od_flow = scanf('<TOTAL OD FLOW> %f', trips_data)[0]
+        print('total_od_flow scanned', total_od_flow)
         #zones_number = scanf('<NUMBER OF ZONES> %d', trips_data)[0]
 
         origins_data = re.findall(r'Origin[\s\d.:;]+', trips_data)
@@ -58,7 +104,20 @@ class DataHandler:
                 targets.append(target)
                 corrs_vals.append(corrs)
             graph_correspondences[origin_index] = {'targets' : targets, 'corrs' : corrs_vals}
-        return graph_correspondences, total_od_flow
+
+        return graph_correspondences
+
+        
+
+
+    @staticmethod
+    def GetGraphCorrespondences(file_name, parser):
+        
+        graph_corrs = parser(file_name)
+        total_od_flow = sum(np.nansum(val['corrs']) for key, val in graph_corrs.items())
+        print('total_od_flow calculated', total_od_flow)
+        
+        return graph_corrs, total_od_flow
 
 
     def ReadAnswer(self, filename):
@@ -124,14 +183,15 @@ class DataHandler:
 
         unique, counts = np.unique(array, return_counts=True)
         array_dict = dict(zip(unique, counts))
+        # TODO remove exception
         try:
             zero_num = array_dict[0]
         except KeyError:
             print('this array without 0')
             return array
         array[max_value_index] = max_value - zero_num
-        for index in np.where(array == 0)[0]:
-            array[index] = 1.0
+
+        array[np.where(array == 0)[0]] = 1.0
 
         return array
 

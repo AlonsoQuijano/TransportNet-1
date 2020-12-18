@@ -19,12 +19,16 @@ import pickle
 import transport_graph as tg
 import csv
 
-net_name = 'SiouxFalls_net.tntp'
-trips_name =  'SiouxFalls_trips.tntp'
+net_name = 'vl_links.txt'
+trips_name = 'vl_trips.txt'
+parsers = 'vladik' 
+# net_name = 'SiouxFalls_net.tntp' 
+# trips_name =  'SiouxFalls_trips.tntp'
+# parsers = 'tntp' 
 
 best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10**(-8)
-
+DEFAULT_COST = 100
 
 def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
 
@@ -35,8 +39,6 @@ def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
 
 
 def init_LW(corr_matrix, n):
-    lambda_L = np.full((n,), 0.0, dtype=np.double)
-    lambda_W = np.full((n,), 0.0, dtype=np.double)
     L = np.nansum(corr_matrix, axis=1)
     W = np.nansum(corr_matrix, axis=0)
     people_num = np.nansum(L)
@@ -44,14 +46,14 @@ def init_LW(corr_matrix, n):
     W = handler.distributor_L_W(W)
     L = L / np.nansum(L)
     W = W / np.nansum(W)
-    return lambda_L, lambda_W, L, W, people_num
+    return L, W, people_num
 
 
 if __name__ == '__main__':
 
     handler = dh.DataHandler()
-    graph_data = handler.GetGraphData(net_name, columns=['init_node', 'term_node', 'capacity', 'free_flow_time'])
-    graph_correspondences, total_od_flow = handler.GetGraphCorrespondences(trips_name)
+    graph_data = handler.GetGraphData(net_name, eval(f'handler.{parsers}_net_parser'), columns=['init_node', 'term_node', 'capacity', 'free_flow_time'])
+    graph_correspondences, total_od_flow = handler.GetGraphCorrespondences(trips_name, eval(f'handler.{parsers}_corr_parser'))
 
     handler = dh.DataHandler()
 
@@ -74,7 +76,7 @@ if __name__ == '__main__':
     # best_sink_beta = n / np.nansum(T)
     T_0 = np.zeros(np.shape(T))
 
-    lambda_L, lambda_W, L, W, people_num = init_LW(correspondence_matrix, n)
+    L, W, people_num = init_LW(correspondence_matrix, n)
     # print('T after changes: ', T)
 
     for ms_i in range(5000):
@@ -86,12 +88,13 @@ if __name__ == '__main__':
 
         # best_sink_beta = n / np.nansum(T)
 
-        cost_matrix = np.nan_to_num(T * best_sink_beta, nan=100)
-        rec, _, _ = s.iterate(cost_matrix, lambda_L, lambda_W)
+        # зачем тут nan_to_num если Т уже через него пропущена
+        cost_matrix = np.nan_to_num(T * best_sink_beta, nan=DEFAULT_COST)
+        rec, _, _ = s.iterate(cost_matrix)
 
         sink_correcpondences_dict = handler.from_cor_matrix_to_dict(rec)
 
-        lambda_L, lambda_W, L, W, people_num = init_LW(rec, n)
+        L, W, people_num = init_LW(rec, n)
 
         model = md.Model(graph_data, sink_correcpondences_dict,
                          total_od_flow, mu=0.25)

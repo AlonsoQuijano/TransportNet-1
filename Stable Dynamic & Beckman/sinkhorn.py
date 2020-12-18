@@ -38,10 +38,10 @@ class Sinkhorn:
 
         return lambda_W, lambda_L
 
-    def iterate(self, cost_matrix, lambda_L, lambda_W):
+    def iterate(self, cost_matrix):
 
-        lambda_Ln = np.full((self.n,), 0.0, dtype=np.double)
-        lambda_Wn = np.full((self.n,), 0.0, dtype=np.double)
+        lambda_L = np.zeros(self.n)
+        lambda_W = np.zeros(self.n)
         # r = None
 
         for k in range(self.num_iter):
@@ -58,7 +58,6 @@ class Sinkhorn:
 
         r = self.rec_d_i_j(lambda_Ln, lambda_Wn, cost_matrix)
         # self.multistage_i += 1
-
         return r, lambda_L, lambda_W
 
     def rec_d_i_j(self, lambda_L, lambda_W, cost_matrix):
