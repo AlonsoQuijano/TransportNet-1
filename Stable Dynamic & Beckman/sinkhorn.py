@@ -1,27 +1,23 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-import pandas as pd
 import numpy as np
 np.set_printoptions(suppress=True)
-import os
 
 
 class Sinkhorn:
 
-    def __init__(self, n, L, W, people_num, iter_num, eps):
-        self.n = n
+    def __init__(self, L, W, people_num, iter_num, eps):
         self.L = L
         self.W = W
+        assert(len(L) == len(W))
+        self.n = len(L)
         self.people_num = people_num
         self.num_iter = iter_num
         self.eps = eps
         self.multistage_i = 0
 
     def sinkhorn(self, k, cost_matrix, lambda_W_prev, lambda_L_prev):
-
-        lambda_L = np.full((self.n,), 0.0, dtype=np.double)
-        lambda_W = np.full((self.n,), 0.0, dtype=np.double)
 
         if k % 2 == 0:
             lambda_W = lambda_W_prev

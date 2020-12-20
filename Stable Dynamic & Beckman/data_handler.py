@@ -12,11 +12,19 @@ class DataHandler:
     def vladik_net_parser(file_name):
         graph_data = {}
         links = pd.read_csv(file_name, sep='\t',skiprows=0)
-        links_ab = links[['ANODE', 'BNODE', 'cap_ab', 'LENGTH']]
-        links_ab.columns = ['init_node', 'term_node', 'capacity', 'free_flow_time']
-        links_ba = links[['ANODE', 'BNODE', 'cap_ba', 'LENGTH']]
-        links_ba.columns = ['init_node', 'term_node', 'capacity', 'free_flow_time']
+        links_ab = links[['ANODE', 'BNODE', 'cap_ab']].copy()
+        links_ab.columns = ['init_node', 'term_node', 'capacity']
+        links_ab['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ab  # in hours
+        links_ba = links[['ANODE', 'BNODE', 'cap_ba']].copy()
+        links_ba.columns = ['init_node', 'term_node', 'capacity']
+        links_ba['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ba  # in hours
+
         df = links_ab.append(links_ba, ignore_index=True)
+        df_inv = df.copy()
+        df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time'] # make graph effectively undirected
+        df = df.append(df_inv, ignore_index=True)
+        df = df[df.capacity > 0]
+
         # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
 
         return df, 1
@@ -57,9 +65,9 @@ class DataHandler:
         graph_data['graph_table'] = df
         graph_data['nodes number'] = len(set(df.init_node.values) | set(df.term_node.values))
         graph_data['links number'] = df.shape[0]
-        graph_data['zones number'] = graph_data['nodes number'] # nodes in corr graph actually
-        print('nUMBER OF NODES, LINKS, ZONES: ', graph_data['nodes number'], 
-            graph_data['links number'], graph_data['zones number'])
+        # graph_data['zones number'] = graph_data['nodes number'] # nodes in corr graph actually
+        print('nUMBER OF NODES, LINKS: ', graph_data['nodes number'], 
+            graph_data['links number'])#, graph_data['zones number'])
         return graph_data 
         
     @staticmethod
@@ -69,7 +77,8 @@ class DataHandler:
         with open(file_name, 'r') as fin:
             fin = list(fin)[1:]
             for line in fin:
-                frm, to, load = [float(x) for x in line.split(',')]
+                str_list = line.split(',')
+                frm, to, load = int(str_list[0]), int(str_list[1]), float(str_list[2])
 
                 if frm not in graph_correspondences:
                     graph_correspondences[frm] = {'targets':[], 'corrs': []}
@@ -144,40 +153,74 @@ class DataHandler:
             C[i, j] = raw_data_line[column_ind]
         return C
 
-    def from_dict_to_cor_matr(self, dictnr, n):
-        correspondence_matrix = np.full((n, n), np.nan, dtype=np.double)
-        i = 1
-        if n > 1:
-            for key in dictnr.keys(): #dictnr[i].keys()
-                for k, v in zip(dictnr[i]['targets'], dictnr[i]['corrs']):
-                    correspondence_matrix[key - 1][k - 1] = v # костыль!
-                i += 1
-        else:
-            for key in dictnr.keys():
-                for k, v in zip(dictnr[i][key].keys(), dictnr[i][key].values()):
-                    correspondence_matrix[int(key) - 1][int(k)] = v
-        # print('corr mtrx: ', correspondence_matrix)
-        return correspondence_matrix
+    # def from_dict_to_cor_matr(self, dictnr, n):
+    #     correspondence_matrix = np.full((n, n), np.nan, dtype=np.double)
+    #     i = 1
+    #     if n > 1:
+    #         for key in dictnr.keys(): #dictnr[i].keys()
+    #             for k, v in zip(dictnr[i]['targets'], dictnr[i]['corrs']):
+    #                 correspondence_matrix[key - 1][k - 1] = v # костыль!
+    #             i += 1
+    #     else:
+    #         for key in dictnr.keys():
+    #             for k, v in zip(dictnr[i][key].keys(), dictnr[i][key].values()):
+    #                 correspondence_matrix[int(key) - 1][int(k)] = v
+    #     # print('corr mtrx: ', correspondence_matrix)
+    #     return correspondence_matrix
 
-    def from_cor_matrix_to_dict(self, corr_matrix):
+    def reindexed_corr_matrix(self, corr_dict):
+        print('corr_dict:', corr_dict)
+        indexes = list(set(corr_dict.keys()) | set(sum([d['targets'] for d in corr_dict.values()], [])))
+
+        print('indexes:', indexes)
+        n = len(indexes)
+        new_indexes = np.arange(n)
+        old_to_new = dict(zip(indexes, new_indexes))
+        new_to_old = dict(zip(new_indexes, indexes))
+        corr_matrix = np.zeros((n, n))
+
+        for source, v in corr_dict.items():
+            targets = v['targets']
+            corrs = v['corrs']
+            print('stc', source, targets, corrs)
+            source_new = old_to_new[source]
+            for target, corr in zip(targets, corrs):
+                target_new = old_to_new[target]
+                corr_matrix[source_new][target_new] = corr
+
+        return corr_matrix, old_to_new, new_to_old
+
+    def corr_matrix_to_dict(self, corr_matrix, new_to_old):
         d = {}
-        # print(np.shape(corr_matrix))
         n = np.shape(corr_matrix)[0]
-
-        for i in range(1, n + 1):
-            d[i] = {}
-            l = list(range(1, n + 1))
-            l.remove(i)
-            d[i]['targets'] = [i] + l
-            l_2 = []
-
-            for j, t in zip(range(1, n + 1), d[i]['targets']):
-                value = corr_matrix[i - 1][t - 1]
-                l_2.append(value)
-                d[i]['corrs'] = l_2
+        for i in range(n):
+            for j in range(n):
+                source = new_to_old[i]
+                d[source] = {}
+                d[source]['targets'] = [new_to_old[x] for x in np.arange(n)]
+                d[source]['corrs'] = corr_matrix[i]
         return d
+    #
+    # def from_cor_matrix_to_dict(self, corr_matrix):
+    #     d = {}
+    #     # print(np.shape(corr_matrix))
+    #     n = np.shape(corr_matrix)[0]
+    #
+    #     for i in range(1, n + 1):
+    #         d[i] = {}
+    #         l = list(range(1, n + 1))
+    #         l.remove(i)
+    #         d[i]['targets'] = [i] + l
+    #         l_2 = []
+    #
+    #         for j, t in zip(range(1, n + 1), d[i]['targets']):
+    #             value = corr_matrix[i - 1][t - 1]
+    #             l_2.append(value)
+    #             d[i]['corrs'] = l_2
+    #     return d
 
     def distributor_L_W(self, array):
+        return array
         max_value = np.max(array)
         max_value_index = np.where(array == np.max(array))
 
@@ -197,7 +240,6 @@ class DataHandler:
 
     def get_t_from_shortest_distances(self, n, graph_data):
 
-        targets = []
         df = graph_data['graph_table']
         T = None
         i = 0
@@ -222,10 +264,10 @@ class DataHandler:
                 T = distances[1:]
             else:
                 T = np.vstack([T, distances[1:]])
-            targets = []
             i += 1
 
         return T
+
 
     def _index_nodes(self, graph_table, graph_correspondences):
         table = graph_table.copy()
@@ -251,14 +293,14 @@ class DataHandler:
         return inds_to_nodes, correspondences, table
 
     def get_T_from_t(self, t, graph_data, graph_correspondences):
-
-        result = {}
-        result['zone travel times'] = {}
+        zone_travel_times = {}
 
         import transport_graph as tg
 
         inds_to_nodes, graph_correspondences_, graph_table_ = self._index_nodes(graph_data['graph_table'],
                                                                                    graph_correspondences)
+        print(graph_table_)
+        print(graph_correspondences_)
 
         # print('data handler: ', len(inds_to_nodes), graph_data['links number'])
         graph_dh = tg.TransportGraph(graph_table_, len(inds_to_nodes), graph_data['links number'])
@@ -267,13 +309,14 @@ class DataHandler:
 
             targets = graph_correspondences_[source]['targets']
             travel_times, _ = graph_dh.shortest_distances(source, targets, t)
+            print('travel_times', travel_times)
             # print('in model.py, travel_times: ', travel_times)
             # mapping nodes' indices to initial nodes' names:
             source_nodes = [inds_to_nodes[source]] * len(targets)
             target_nodes = list(map(inds_to_nodes.get, targets))
-            result['zone travel times'].update(zip(zip(source_nodes, target_nodes), travel_times))
+            zone_travel_times.update(zip(zip(source_nodes, target_nodes), travel_times))
 
-        return result
+        return zone_travel_times
 
     def get_T_new(self, n, T, paycheck):
 
