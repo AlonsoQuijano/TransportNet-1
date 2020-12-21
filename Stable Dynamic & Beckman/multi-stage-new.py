@@ -9,11 +9,11 @@ import sinkhorn as skh
 import model as md
 import csv
 
-# net_name = 'vl_links.txt'
-# trips_name = 'vl_trips.txt'
+# net_name = '../data/vl_links.txt'
+# trips_name = '../data/vl_trips.txt'
 # parsers = 'vladik'
-net_name = 'SiouxFalls_net.tntp'
-trips_name = 'SiouxFalls_trips.tntp'
+net_name = '../data/SiouxFalls_net.tntp'
+trips_name = '../data/SiouxFalls_trips.tntp'
 parsers = 'tntp'
 
 best_sink_beta = 0.005
