@@ -24,6 +24,9 @@ class DataHandler:
         df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time'] # make graph effectively undirected
         df = df.append(df_inv, ignore_index=True)
         df = df[df.capacity > 0]
+        print('shape before drop', df.shape)
+        df.drop_duplicates(inplace=True)
+        print('shape after drop', df.shape)
 
         # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
 
@@ -239,7 +242,6 @@ class DataHandler:
         return array
 
     def get_t_from_shortest_distances(self, n, graph_data):
-
         df = graph_data['graph_table']
         T = None
         i = 0
@@ -268,37 +270,10 @@ class DataHandler:
 
         return T
 
-
-    def _index_nodes(self, graph_table, graph_correspondences):
-        table = graph_table.copy()
-        inits = np.unique(table['init_node'][table['init_node_thru'] == False])
-        terms = np.unique(table['term_node'][table['term_node_thru'] == False])
-        through_nodes = np.unique([table['init_node'][table['init_node_thru'] == True],
-                                   table['term_node'][table['term_node_thru'] == True]])
-
-        nodes = np.concatenate((inits, through_nodes, terms))
-        nodes_inds = list(zip(nodes, np.arange(len(nodes))))
-        init_to_ind = dict(nodes_inds[: len(inits) + len(through_nodes)])
-        term_to_ind = dict(nodes_inds[len(inits):])
-
-        table['init_node'] = table['init_node'].map(init_to_ind)
-        table['term_node'] = table['term_node'].map(term_to_ind)
-        correspondences = {}
-        for origin, dests in graph_correspondences.items():
-            dests = copy.deepcopy(dests)
-            correspondences[init_to_ind[origin]] = {'targets': list(map(term_to_ind.get, dests['targets'])),
-                                                    'corrs': dests['corrs']}
-
-        inds_to_nodes = dict(zip(range(len(nodes)), nodes))
-        return inds_to_nodes, correspondences, table
-
-    def get_T_from_t(self, t, graph_data, graph_correspondences):
+    def get_T_from_t(self, t, graph_data, model):
         zone_travel_times = {}
 
-        import transport_graph as tg
-
-        inds_to_nodes, graph_correspondences_, graph_table_ = self._index_nodes(graph_data['graph_table'],
-                                                                                   graph_correspondences)
+        inds_to_nodes, graph_correspondences_, graph_table_ = model.inds_to_nodes.copy(), model.graph_correspondences.copy(), model.graph_table.copy()
         print(graph_table_)
         print(graph_correspondences_)
 

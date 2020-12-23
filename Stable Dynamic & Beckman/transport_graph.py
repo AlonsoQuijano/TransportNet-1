@@ -18,12 +18,11 @@ class TransportGraph:
         vlist = self.graph.add_vertex(self.nodes_number)
 
         # let's create some property maps
-        ep_freeflow_time = self.graph.new_edge_property("double")
         ep_capacity = self.graph.new_edge_property("double")
         
         #define data for edge properties
         self.capacities = np.array(graph_table[['capacity']], dtype = 'float64').flatten()
-        self.freeflow_times = np.array(graph_table[['free_flow_time']], dtype = 'float64').flatten()
+        self.initial_times = np.array(graph_table[['free_flow_time']], dtype ='float64').flatten()
 
         #adding edges to the graph
         self.inits = np.array(graph_table[['init_node']], dtype = 'int64').flatten()
@@ -36,14 +35,14 @@ class TransportGraph:
             edge = self.graph.add_edge(self.graph.vertex(init),
                                        self.graph.vertex(term))
 
-            ep_freeflow_time[edge] = self.freeflow_times[index]
             ep_capacity[edge] = self.capacities[index]
             
         #save properties to graph
-        self.graph.edge_properties["freeflow_times"] = ep_freeflow_time
         self.graph.edge_properties["capacities"] = ep_capacity
 
-    
+    def update_flow_times(self, flow_times):
+        self.initial_times = np.array(flow_times, dtype='float64').flatten()
+
     @property
     def edges(self):
         return self.graph.get_edges([self.graph.edge_index])

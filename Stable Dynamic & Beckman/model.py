@@ -17,29 +17,35 @@ class Model:
         self.total_od_flow = total_od_flow
         self.mu = mu
         self.rho = rho
-        self.inds_to_nodes, self.graph_correspondences, graph_table = self._index_nodes(graph_data['graph_table'],
+        self.inds_to_nodes, self.graph_correspondences, self.graph_table = self._index_nodes(graph_data['graph_table'],
                                                                                         graph_correspondences)
-        self.graph = tg.TransportGraph(graph_table, len(self.inds_to_nodes), graph_data['links number'])
-        
-    def _index_nodes(self, graph_table, graph_correspondences):
+        self.graph = tg.TransportGraph(self.graph_table, len(self.inds_to_nodes), graph_data['links number'])
+
+    def refresh_correspondences(self, graph_data, corrs_dict):
+        self.inds_to_nodes, self.graph_correspondences, _ = self._index_nodes(graph_data['graph_table'], corrs_dict)
+
+    @staticmethod
+    def _index_nodes(graph_table, graph_correspondences):
+
         table = graph_table.copy()
         inits = np.unique(table['init_node'][table['init_node_thru'] == False])
         terms = np.unique(table['term_node'][table['term_node_thru'] == False])
         through_nodes = np.unique([table['init_node'][table['init_node_thru'] == True], 
                                    table['term_node'][table['term_node_thru'] == True]])
-        
+
+        # print(through_nodes)
         nodes = np.concatenate((inits, through_nodes, terms))
         nodes_inds = list(zip(nodes, np.arange(len(nodes))))
         init_to_ind = dict(nodes_inds[ : len(inits) + len(through_nodes)])
-        term_to_ind = dict(nodes_inds[len(inits) : ])
+        term_to_ind = dict(nodes_inds[len(inits):])
         
         table['init_node'] = table['init_node'].map(init_to_ind)
         table['term_node'] = table['term_node'].map(term_to_ind)
         correspondences = {}
         for origin, dests in graph_correspondences.items():
             dests = copy.deepcopy(dests)
-            correspondences[init_to_ind[origin]] = {'targets' : list(map(term_to_ind.get , dests['targets'])), 
-                                                                     'corrs' : dests['corrs']}
+            correspondences[init_to_ind[origin]] = {'targets' : list(map(term_to_ind.get, dests['targets'])),
+                                                                     'corrs': dests['corrs']}
             
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table
@@ -74,10 +80,10 @@ class Model:
         
         phi_big_oracle = oracles.PhiBigOracle(self.graph, self.graph_correspondences)
 
-        h_oracle = oracles.HOracle(self.graph.freeflow_times, self.graph.capacities, 
+        h_oracle = oracles.HOracle(self.graph.initial_times, self.graph.capacities,
                                    rho = self.rho, mu = self.mu)
         primal_dual_calculator = dfc.PrimalDualCalculator(phi_big_oracle, h_oracle,
-                                                          self.graph.freeflow_times, self.graph.capacities,
+                                                          self.graph.initial_times, self.graph.capacities,
                                                           rho = self.rho, mu = self.mu, base_flows = base_flows)
         if composite == True or solver_name == 'fwm':
             if not solver_name == 'fwm':
@@ -93,20 +99,20 @@ class Model:
                     where Q - the feasible set {t: t >= free_flow_times},
                     A - constant, g - (sub)gradient vector, p - point at which prox is calculated
                 """
-                return np.maximum(point - grad / A, self.graph.freeflow_times)
+                return np.maximum(point - grad / A, self.graph.initial_times)
             prox = prox_func
         print('Oracles created...')
         print(starting_msg)
         
         if solver_name == 'fwm':
             result = solver_func(oracle,
-                                 primal_dual_calculator, 
-                                 t_start = self.graph.freeflow_times,
+                                 primal_dual_calculator,
+                                 t_start = self.graph.initial_times,
                                  **solver_kwargs)
         else:
             result = solver_func(oracle, prox,
-                                 primal_dual_calculator, 
-                                 t_start = self.graph.freeflow_times,
+                                 primal_dual_calculator,
+                                 t_start = self.graph.initial_times,
                                  **solver_kwargs)
         #getting travel times of every non-zero trips between zones:
         result['zone travel times'] = {}

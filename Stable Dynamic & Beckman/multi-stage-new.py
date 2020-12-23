@@ -23,9 +23,10 @@ INF_TIME = 1e10
 
 
 
-def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
-    capacities = graph_table['capacity'].to_numpy()
-    freeflowtimes = graph_table['free_flow_time'].to_numpy()
+def get_times_inverse_func(capacity, times, rho = 0.15, mu=0.25):
+    capacities = capacity.to_numpy()
+    # FIXME  IS IT A BUG???
+    freeflowtimes = times #graph_table['free_flow_time'].to_numpy()
     # print('hm: ', np.power(times / freeflowtimes, mu))
     return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
@@ -49,6 +50,9 @@ def T_matrix_from_dict(T_dict, shape, old_to_new):
         T[source][target] = T_dict[key]
     return T
 
+def write(x):
+    with open('compare', 'a') as f:
+        f.write(str(x) + '\n')
 if __name__ == '__main__':
 
     handler = dh.DataHandler()
@@ -59,19 +63,16 @@ if __name__ == '__main__':
 
     max_iter = 2
     alpha = 0.9
-    graph_table = graph_data['graph_table']
 
-    n = np.max(graph_table['init_node'].to_numpy())
-    print('n: ', n)
     correspondence_matrix, old_to_new, new_to_old = handler.reindexed_corr_matrix(graph_correspondences)
     print('fill correspondence_matrix')
 
-    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
-                                             graph_data, graph_correspondences)
-    T = T_matrix_from_dict(T_dict, correspondence_matrix.shape, old_to_new)
+    model = md.Model(graph_data, graph_correspondences,
+                     total_od_flow, mu=0.25)
 
-    # best_sink_beta = n / np.nansum(T)
-    T_0 = np.zeros(T.shape)
+    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
+                                             graph_data, model)
+    T = T_matrix_from_dict(T_dict, correspondence_matrix.shape, old_to_new)
 
     print('init LW')
     L, W, people_num = init_LW(correspondence_matrix)
@@ -90,13 +91,11 @@ if __name__ == '__main__':
         # зачем тут nan_to_num если Т уже через него пропущена с другим nan=
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
         rec, _, _ = s.iterate(cost_matrix)
-
         sink_correspondences_dict = handler.corr_matrix_to_dict(rec, new_to_old)
 
-        L, W, people_num = init_LW(rec)
+        # L, W, people_num = init_LW(rec)
 
-        model = md.Model(graph_data, sink_correspondences_dict,
-                         total_od_flow, mu=0.25)
+        model.refresh_correspondences(graph_data, sink_correspondences_dict)
 
         for i, eps_abs in enumerate(np.logspace(1, 3, 1)):
             solver_kwargs = {'eps_abs': eps_abs,
@@ -106,12 +105,15 @@ if __name__ == '__main__':
                                             solver_kwargs=solver_kwargs,
                                             base_flows=alpha * graph_data['graph_table']['capacity'])
 
-        graph_data['graph_table']['free_flow_time'] = result['times']
+            write(result)
+
+        model.graph.update_flow_times(result['times'])
         T_dict = result['zone travel times']
         T = T_matrix_from_dict(T_dict, rec.shape, old_to_new)
-        T_0 = T
 
-        flows_inverse_func = get_times_inverse_func(graph_table, result['times'], rho=0.15, mu=0.25)
+        # now impact on iterations from code below
+
+        flows_inverse_func = get_times_inverse_func(graph_data['graph_table']['capacity'], result['times'], rho=0.15, mu=0.25)
 
         subg = result['subg']
 
@@ -120,6 +122,7 @@ if __name__ == '__main__':
 
         print('subg shape: ', np.shape(subg), 'flows_inv shape: ',  np.shape(flows_inverse_func))
 
+        print(result.keys())
         if max_iter == 2:
 
             np.savetxt('KEV_res/multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
