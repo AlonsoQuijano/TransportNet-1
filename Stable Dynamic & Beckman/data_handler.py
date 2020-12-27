@@ -72,25 +72,24 @@ class DataHandler:
         
     @staticmethod
     def vladik_corr_parser(file_name):
-        graph_correspondences = {}
-        od = 0
         with open(file_name, 'r') as fin:
             fin = list(fin)[1:]
-            for line in fin:
-                str_list = line.split(',')
-                frm, to, load = int(str_list[0]), int(str_list[1]), float(str_list[2])
+            nodes = [int(x) for x in fin[0].split(' ')]
+            L = [int(x) for x in fin[1].split(' ')]
+            W = [int(x) for x in fin[2].split(' ')]
+            # for line in fin:
+                # str_list = line.split(',')
+                # frm, to, load = int(str_list[0]), int(str_list[1]), float(str_list[2])
+                #
+                # if frm not in corr_dict:
+                #     corr_dict[frm] = {'targets':[], 'corrs': []}
+                #
+                # corr_dict[frm]['targets'].append(to)
+                # corr_dict[frm]['corrs'].append(load)
+                # od += load
 
-                if frm not in graph_correspondences:
-                    graph_correspondences[frm] = {'targets':[], 'corrs': []}
+        return dict(zip(nodes, L)), dict(zip(nodes, W))
 
-                graph_correspondences[frm]['targets'].append(to)
-                graph_correspondences[frm]['corrs'].append(load)
-                od += load
-
-            return graph_correspondences#, od
-
-
-        
     @staticmethod
     def tntp_corr_parser(file_name):
         with open(file_name, 'r') as myfile:
@@ -102,31 +101,34 @@ class DataHandler:
 
         origins_data = re.findall(r'Origin[\s\d.:;]+', trips_data)
 
-        graph_correspondences = {}
+        L_dict, W_dict = {}, {}
         for data in origins_data:
             origin_index = scanf('Origin %d', data)[0]
             origin_correspondences = re.findall(r'[\d]+\s+:[\d.\s]+;', data)
-            targets = []
-            corrs_vals = []
+            L_dict[origin_index] = 0
             for line in origin_correspondences:
                 target, corrs = scanf('%d : %f', line)
-                targets.append(target)
-                corrs_vals.append(corrs)
-            graph_correspondences[origin_index] = {'targets' : targets, 'corrs' : corrs_vals}
+                L_dict[origin_index] += corrs
+                if target not in W_dict:
+                    W_dict[target] = 0
+                W_dict[target] += corrs
 
-        return graph_correspondences
-
-        
-
+        return L_dict, W_dict#, od
 
     @staticmethod
-    def GetGraphCorrespondences(file_name, parser):
-        
-        graph_corrs = parser(file_name)
-        total_od_flow = sum(np.nansum(val['corrs']) for key, val in graph_corrs.items())
-        print('total_od_flow calculated', total_od_flow)
-        
-        return graph_corrs, total_od_flow
+    def T_matrix_from_dict(T_dict, shape, old_to_new):
+        print('fill T')
+        T = np.zeros(shape)
+        for key in T_dict.keys():
+            source, target = old_to_new[key[0]], old_to_new[key[1]]
+            T[source][target] = T_dict[key]
+        return T
+
+    @staticmethod
+    def GetLW_dicts(file_name, parser):
+        L_dict, W_dict = parser(file_name)
+
+        return L_dict, W_dict
 
 
     def ReadAnswer(self, filename):
@@ -168,7 +170,7 @@ class DataHandler:
     #     # print('corr mtrx: ', correspondence_matrix)
     #     return correspondence_matrix
 
-    def reindexed_corr_matrix(self, corr_dict):
+    def reindexed_empty_corr_matrix(self, corr_dict):
         print('corr_dict:', corr_dict)
         indexes = list(set(corr_dict.keys()) | set(sum([d['targets'] for d in corr_dict.values()], [])))
 
@@ -177,18 +179,18 @@ class DataHandler:
         new_indexes = np.arange(n)
         old_to_new = dict(zip(indexes, new_indexes))
         new_to_old = dict(zip(new_indexes, indexes))
-        corr_matrix = np.zeros((n, n))
+        empty_corr_matrix = np.zeros((n, n))
 
-        for source, v in corr_dict.items():
-            targets = v['targets']
-            corrs = v['corrs']
-            print('stc', source, targets, corrs)
-            source_new = old_to_new[source]
-            for target, corr in zip(targets, corrs):
-                target_new = old_to_new[target]
-                corr_matrix[source_new][target_new] = corr
+        # for source, v in corr_dict.items():
+        #     targets = v['targets']
+        #     corrs = v['corrs']
+        #     print('stc', source, targets, corrs)
+        #     source_new = old_to_new[source]
+        #     for target, corr in zip(targets, corrs):
+        #         target_new = old_to_new[target]
+        #         corr_matrix[source_new][target_new] = corr
 
-        return corr_matrix, old_to_new, new_to_old
+        return empty_corr_matrix, old_to_new, new_to_old
 
     def corr_matrix_to_dict(self, corr_matrix, new_to_old):
         d = {}
@@ -238,38 +240,38 @@ class DataHandler:
 
         return array
 
-    def get_t_from_shortest_distances(self, n, graph_data):
+    # def get_t_from_shortest_distances(self, n, graph_data):
+    #
+    #     df = graph_data['graph_table']
+    #     T = None
+    #     i = 0
+    #     for source in range(n):
+    #
+    #         targets = [source]
+    #         targets += range(0, n)
+    #
+    #         graph_table = graph_data['graph_table']
+    #
+    #         graph = tg.TransportGraph(graph_table,
+    #                                   graph_data['links number'],
+    #                                   graph_data['nodes number'])
+    #
+    #
+    #         t_exp = np.array(df['free_flow_time'], dtype='float64').flatten()
+    #         distances, pred_map = graph.shortest_distances(source=source,
+    #                                                        targets=targets,
+    #                                                        times=t_exp)
+    #
+    #         if i == 0:
+    #             T = distances[1:]
+    #         else:
+    #             T = np.vstack([T, distances[1:]])
+    #         i += 1
+    #
+    #     return T
 
-        df = graph_data['graph_table']
-        T = None
-        i = 0
-        for source in range(n):
 
-            targets = [source]
-            targets += range(0, n)
-
-            graph_table = graph_data['graph_table']
-
-            graph = tg.TransportGraph(graph_table,
-                                      graph_data['links number'],
-                                      graph_data['nodes number'])
-
-
-            t_exp = np.array(df['free_flow_time'], dtype='float64').flatten()
-            distances, pred_map = graph.shortest_distances(source=source,
-                                                           targets=targets,
-                                                           times=t_exp)
-
-            if i == 0:
-                T = distances[1:]
-            else:
-                T = np.vstack([T, distances[1:]])
-            i += 1
-
-        return T
-
-
-    def _index_nodes(self, graph_table, graph_correspondences):
+    def _index_nodes(self, graph_table, graph_correspondences, fill_corrs=True):
         table = graph_table.copy()
         inits = np.unique(table['init_node'][table['init_node_thru'] == False])
         terms = np.unique(table['term_node'][table['term_node_thru'] == False])
@@ -286,8 +288,11 @@ class DataHandler:
         correspondences = {}
         for origin, dests in graph_correspondences.items():
             dests = copy.deepcopy(dests)
-            correspondences[init_to_ind[origin]] = {'targets': list(map(term_to_ind.get, dests['targets'])),
-                                                    'corrs': dests['corrs']}
+            d = {'targets': list(map(term_to_ind.get, dests['targets']))}
+            if fill_corrs:
+                d['corrs']: dests['corrs']
+            correspondences[init_to_ind[origin]] = d
+
 
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table

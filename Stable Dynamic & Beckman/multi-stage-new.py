@@ -9,18 +9,17 @@ import sinkhorn as skh
 import model as md
 import csv
 
-# net_name = '../data/vl_links.txt'
-# trips_name = '../data/vl_trips.txt'
-# parsers = 'vladik'
-net_name = '../data/SiouxFalls_net.tntp'
-trips_name = '../data/SiouxFalls_trips.tntp'
-parsers = 'tntp'
+net_name = '../data/vl_links.txt'
+trips_name = '../data/vl_trips.txt'
+parsers = 'vladik'
+# net_name = '../data/SiouxFalls_net.tntp'
+# trips_name = '../data/SiouxFalls_trips.tntp'
+# parsers = 'tntp'
 
 best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10**(-8)
 INF_COST = 100
 INF_TIME = 1e10
-
 
 
 def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
@@ -29,31 +28,21 @@ def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
     # print('hm: ', np.power(times / freeflowtimes, mu))
     return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
-
-def init_LW(corr_matrix):
-    L = np.array(corr_matrix.sum(axis=1))
-    W = np.array(corr_matrix.sum(axis=0))
-    print('summarized')
-    people_num = np.nansum(L)
-    L = handler.distributor_L_W(L)
-    W = handler.distributor_L_W(W)
-    L = L / np.nansum(L)
-    W = W / np.nansum(W)
+def get_LW(L_dict, W_dict, new_to_old):
+    L = np.array([L_dict[new_to_old[i]] for i in range(len(L_dict))], dtype=np.double)
+    W = np.array([W_dict[new_to_old[i]] for i in range(len(W_dict))], dtype=np.double)
+    people_num = L.sum()
+    print(type(L))
+    L /= np.nansum(L)
+    W /= np.nansum(W)
     return L, W, people_num
 
-def T_matrix_from_dict(T_dict, shape, old_to_new):
-    print('fill T')
-    T = np.zeros(shape)
-    for key in T_dict.keys():
-        source, target = old_to_new[key[0]], old_to_new[key[1]]
-        T[source][target] = T_dict[key]
-    return T
 
 if __name__ == '__main__':
 
     handler = dh.DataHandler()
     graph_data = handler.GetGraphData(net_name, eval(f'handler.{parsers}_net_parser'), columns=['init_node', 'term_node', 'capacity', 'free_flow_time'])
-    graph_correspondences, total_od_flow = handler.GetGraphCorrespondences(trips_name, eval(f'handler.{parsers}_corr_parser'))
+    L_dict, W_dict = handler.GetLW_dicts(trips_name, eval(f'handler.{parsers}_corr_parser'))
 
     handler = dh.DataHandler()
 
@@ -63,20 +52,29 @@ if __name__ == '__main__':
 
     n = np.max(graph_table['init_node'].to_numpy())
     print('n: ', n)
-    correspondence_matrix, old_to_new, new_to_old = handler.reindexed_corr_matrix(graph_correspondences)
+    # no "corrs" (d_ij) in empty corr dict - no need for them in the problem input, but it's convenient to create
+    # corr_dict to use existing functions
+    empty_corr_dict = {source: {'targets': list(W_dict.keys())} for source in L_dict.keys()}
+    empty_corr_matrix, old_to_new, new_to_old = handler.reindexed_empty_corr_matrix(empty_corr_dict)
     print('fill correspondence_matrix')
 
     T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
-                                             graph_data, graph_correspondences)
-    T = T_matrix_from_dict(T_dict, correspondence_matrix.shape, old_to_new)
+                                             graph_data, empty_corr_dict)
+    T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
     # best_sink_beta = n / np.nansum(T)
     T_0 = np.zeros(T.shape)
 
     print('init LW')
-    L, W, people_num = init_LW(correspondence_matrix)
+    L, W, people_num = get_LW(L_dict, W_dict, new_to_old)
+    total_od_flow = people_num
     print('L, W', L, W)
     # print('T after changes: ', T)
+    def write(x):
+        with open('compare', 'a') as f:
+            f.write(str(x) + '\n')
+
+
 
     for ms_i in range(5000):
 
@@ -89,11 +87,22 @@ if __name__ == '__main__':
 
         # зачем тут nan_to_num если Т уже через него пропущена с другим nan=
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
+        write(ms_i)
+        write(cost_matrix)
         rec, _, _ = s.iterate(cost_matrix)
+        write(rec)
 
         sink_correspondences_dict = handler.corr_matrix_to_dict(rec, new_to_old)
 
-        L, W, people_num = init_LW(rec)
+        # L, W, people_num = get_LW(rec)
+        L_new = np.nansum(rec, axis=1)
+        L_new /= np.nansum(L_new)
+        W_new = np.nansum(rec, axis=0)
+        W_new /= np.nansum(W_new)
+        # print('L:', np.isclose(L, L_new) , sep = '\n')
+        # print('W:', W == W_new, sep = '\n')
+        assert(np.allclose(L, L_new))
+        assert(np.allclose(W, W_new))
 
         model = md.Model(graph_data, sink_correspondences_dict,
                          total_od_flow, mu=0.25)
@@ -108,7 +117,7 @@ if __name__ == '__main__':
 
         graph_data['graph_table']['free_flow_time'] = result['times']
         T_dict = result['zone travel times']
-        T = T_matrix_from_dict(T_dict, rec.shape, old_to_new)
+        T = handler.T_matrix_from_dict(T_dict, rec.shape, old_to_new)
         T_0 = T
 
         flows_inverse_func = get_times_inverse_func(graph_table, result['times'], rho=0.15, mu=0.25)
