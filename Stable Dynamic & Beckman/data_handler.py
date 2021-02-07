@@ -24,6 +24,9 @@ class DataHandler:
         df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time'] # make graph effectively undirected
         df = df.append(df_inv, ignore_index=True)
         df = df[df.capacity > 0]
+        print('shape before drop', df.shape)
+        df.drop_duplicates(inplace=True)
+        print('shape after drop', df.shape)
 
         # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
 
@@ -77,16 +80,6 @@ class DataHandler:
             nodes = [int(x) for x in fin[0].split(' ')]
             L = [int(x) for x in fin[1].split(' ')]
             W = [int(x) for x in fin[2].split(' ')]
-            # for line in fin:
-                # str_list = line.split(',')
-                # frm, to, load = int(str_list[0]), int(str_list[1]), float(str_list[2])
-                #
-                # if frm not in corr_dict:
-                #     corr_dict[frm] = {'targets':[], 'corrs': []}
-                #
-                # corr_dict[frm]['targets'].append(to)
-                # corr_dict[frm]['corrs'].append(load)
-                # od += load
 
         return dict(zip(nodes, L)), dict(zip(nodes, W))
 
@@ -181,15 +174,6 @@ class DataHandler:
         new_to_old = dict(zip(new_indexes, indexes))
         empty_corr_matrix = np.zeros((n, n))
 
-        # for source, v in corr_dict.items():
-        #     targets = v['targets']
-        #     corrs = v['corrs']
-        #     print('stc', source, targets, corrs)
-        #     source_new = old_to_new[source]
-        #     for target, corr in zip(targets, corrs):
-        #         target_new = old_to_new[target]
-        #         corr_matrix[source_new][target_new] = corr
-
         return empty_corr_matrix, old_to_new, new_to_old
 
     def corr_matrix_to_dict(self, corr_matrix, new_to_old):
@@ -202,24 +186,6 @@ class DataHandler:
                 d[source]['targets'] = [new_to_old[x] for x in np.arange(n)]
                 d[source]['corrs'] = corr_matrix[i]
         return d
-    #
-    # def from_cor_matrix_to_dict(self, corr_matrix):
-    #     d = {}
-    #     # print(np.shape(corr_matrix))
-    #     n = np.shape(corr_matrix)[0]
-    #
-    #     for i in range(1, n + 1):
-    #         d[i] = {}
-    #         l = list(range(1, n + 1))
-    #         l.remove(i)
-    #         d[i]['targets'] = [i] + l
-    #         l_2 = []
-    #
-    #         for j, t in zip(range(1, n + 1), d[i]['targets']):
-    #             value = corr_matrix[i - 1][t - 1]
-    #             l_2.append(value)
-    #             d[i]['corrs'] = l_2
-    #     return d
 
     def distributor_L_W(self, array):
         return array
@@ -297,13 +263,10 @@ class DataHandler:
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table
 
-    def get_T_from_t(self, t, graph_data, graph_correspondences):
+    def get_T_from_t(self, t, graph_data, model):
         zone_travel_times = {}
 
-        import transport_graph as tg
-
-        inds_to_nodes, graph_correspondences_, graph_table_ = self._index_nodes(graph_data['graph_table'],
-                                                                                   graph_correspondences)
+        inds_to_nodes, graph_correspondences_, graph_table_ = model.inds_to_nodes.copy(), model.graph_correspondences.copy(), model.graph_table.copy()
         print(graph_table_)
         print(graph_correspondences_)
 

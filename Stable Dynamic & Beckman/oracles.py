@@ -177,6 +177,7 @@ def get_pred_to_edges(graph):
 
 
 class PhiBigOracle(BaseOracle):
+    pred_to_edges = None
     def __init__(self, graph, correspondences, processes_number = None):
         self.graph = graph
         self.correspondences = correspondences
@@ -186,11 +187,13 @@ class PhiBigOracle(BaseOracle):
             self.processes_number = len(correspondences)
         self.t_current = self.func_current = self.grad_current = None
         
-        pred_to_edges = get_pred_to_edges(graph)
+        if not PhiBigOracle.pred_to_edges:
+            print('calculating pred to edges') 
+            PhiBigOracle.pred_to_edges = get_pred_to_edges(graph)
         
         self.auto_oracles = []
         for source, source_correspondences in self.correspondences.items():
-            self.auto_oracles.append(AutomaticOracle(source, self.graph, source_correspondences, pred_to_edges))
+            self.auto_oracles.append(AutomaticOracle(source, self.graph, source_correspondences, PhiBigOracle.pred_to_edges))
         self.time = 0.0
     
     def _reset(self, t_parameter):

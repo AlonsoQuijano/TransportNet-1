@@ -9,12 +9,12 @@ import sinkhorn as skh
 import model as md
 import csv
 
-net_name = '../data/vl_links.txt'
-trips_name = '../data/vl_trips.txt'
-parsers = 'vladik'
-# net_name = '../data/SiouxFalls_net.tntp'
-# trips_name = '../data/SiouxFalls_trips.tntp'
-# parsers = 'tntp'
+# net_name = '../data/vl_links.txt'
+# trips_name = '../data/vl_trips.txt'
+# parsers = 'vladik'
+net_name = '../data/SiouxFalls_net.tntp'
+trips_name = '../data/SiouxFalls_trips.tntp'
+parsers = 'tntp'
 
 best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10**(-8)
@@ -22,9 +22,10 @@ INF_COST = 100
 INF_TIME = 1e10
 
 
-def get_times_inverse_func(graph_table, times, rho = 0.15, mu=0.25):
-    capacities = graph_table['capacity'].to_numpy()
-    freeflowtimes = graph_table['free_flow_time'].to_numpy()
+def get_times_inverse_func(capacity, times, rho = 0.15, mu=0.25):
+    capacities = capacity.to_numpy()
+    # FIXME  IS IT A BUG???
+    freeflowtimes = times #graph_table['free_flow_time'].to_numpy()
     # print('hm: ', np.power(times / freeflowtimes, mu))
     return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
@@ -48,33 +49,23 @@ if __name__ == '__main__':
 
     max_iter = 2
     alpha = 0.9
-    graph_table = graph_data['graph_table']
 
-    n = np.max(graph_table['init_node'].to_numpy())
-    print('n: ', n)
     # no "corrs" (d_ij) in empty corr dict - no need for them in the problem input, but it's convenient to create
     # corr_dict to use existing functions
     empty_corr_dict = {source: {'targets': list(W_dict.keys())} for source in L_dict.keys()}
     empty_corr_matrix, old_to_new, new_to_old = handler.reindexed_empty_corr_matrix(empty_corr_dict)
     print('fill correspondence_matrix')
 
-    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
-                                             graph_data, empty_corr_dict)
-    T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
-
-    # best_sink_beta = n / np.nansum(T)
-    T_0 = np.zeros(T.shape)
-
     print('init LW')
     L, W, people_num = get_LW(L_dict, W_dict, new_to_old)
     total_od_flow = people_num
     print('L, W', L, W)
-    # print('T after changes: ', T)
-    def write(x):
-        with open('compare', 'a') as f:
-            f.write(str(x) + '\n')
 
+    model = md.Model(graph_data, empty_corr_dict, total_od_flow, mu=0.25)
 
+    T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
+                                             graph_data, model)
+    T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
     for ms_i in range(5000):
 
@@ -87,11 +78,7 @@ if __name__ == '__main__':
 
         # зачем тут nan_to_num если Т уже через него пропущена с другим nan=
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
-        write(ms_i)
-        write(cost_matrix)
         rec, _, _ = s.iterate(cost_matrix)
-        write(rec)
-
         sink_correspondences_dict = handler.corr_matrix_to_dict(rec, new_to_old)
 
         # L, W, people_num = get_LW(rec)
@@ -104,8 +91,7 @@ if __name__ == '__main__':
         assert(np.allclose(L, L_new))
         assert(np.allclose(W, W_new))
 
-        model = md.Model(graph_data, sink_correspondences_dict,
-                         total_od_flow, mu=0.25)
+        model.refresh_correspondences(graph_data, sink_correspondences_dict)
 
         for i, eps_abs in enumerate(np.logspace(1, 3, 1)):
             solver_kwargs = {'eps_abs': eps_abs,
@@ -115,12 +101,16 @@ if __name__ == '__main__':
                                             solver_kwargs=solver_kwargs,
                                             base_flows=alpha * graph_data['graph_table']['capacity'])
 
-        graph_data['graph_table']['free_flow_time'] = result['times']
+        model.graph.update_flow_times(result['times'])
         T_dict = result['zone travel times']
         T = handler.T_matrix_from_dict(T_dict, rec.shape, old_to_new)
-        T_0 = T
 
-        flows_inverse_func = get_times_inverse_func(graph_table, result['times'], rho=0.15, mu=0.25)
+
+
+
+        # no impact on iterations from code below
+
+        flows_inverse_func = get_times_inverse_func(graph_data['graph_table']['capacity'], result['times'], rho=0.15, mu=0.25)
 
         subg = result['subg']
 
