@@ -273,11 +273,11 @@ class DataHandler:
         # print('data handler: ', len(inds_to_nodes), graph_data['links number'])
         graph_dh = tg.TransportGraph(graph_table_, len(inds_to_nodes), graph_data['links number'])
 
-        for source in graph_correspondences_:
+        for i, source in enumerate(graph_correspondences_):
 
             targets = graph_correspondences_[source]['targets']
             travel_times, _ = graph_dh.shortest_distances(source, targets, t)
-            print('travel_times', travel_times)
+            print(i, 'travel_times', travel_times)
             # print('in model.py, travel_times: ', travel_times)
             # mapping nodes' indices to initial nodes' names:
             source_nodes = [inds_to_nodes[source]] * len(targets)

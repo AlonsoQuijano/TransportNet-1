@@ -9,12 +9,12 @@ import sinkhorn as skh
 import model as md
 import csv
 
-# net_name = '../data/vl_links.txt'
-# trips_name = '../data/vl_trips.txt'
-# parsers = 'vladik'
-net_name = '../data/SiouxFalls_net.tntp'
-trips_name = '../data/SiouxFalls_trips.tntp'
-parsers = 'tntp'
+net_name = '../data/vl_links.txt'
+trips_name = '../data/vl_trips.txt'
+parsers = 'vladik'
+# net_name = '../data/SiouxFalls_net.tntp'
+# trips_name = '../data/SiouxFalls_trips.tntp'
+# parsers = 'tntp'
 
 best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10**(-8)
@@ -67,7 +67,10 @@ if __name__ == '__main__':
                                              graph_data, model)
     T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
-    for ms_i in range(5000):
+    if parsers == 'vladik':
+        best_sink_beta = T.shape[0] / np.nansum(T)
+
+    for ms_i in range(250):
 
         print('iteration: ', ms_i)
 
