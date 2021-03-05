@@ -1,27 +1,23 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-import pandas as pd
 import numpy as np
 np.set_printoptions(suppress=True)
-import os
 
 
 class Sinkhorn:
 
-    def __init__(self, n, L, W, people_num, iter_num, eps):
-        self.n = n
+    def __init__(self, L, W, people_num, iter_num, eps):
         self.L = L
         self.W = W
+        assert(len(L) == len(W))
+        self.n = len(L)
         self.people_num = people_num
         self.num_iter = iter_num
         self.eps = eps
         self.multistage_i = 0
 
     def sinkhorn(self, k, cost_matrix, lambda_W_prev, lambda_L_prev):
-
-        lambda_L = np.full((self.n,), 0.0, dtype=np.double)
-        lambda_W = np.full((self.n,), 0.0, dtype=np.double)
 
         if k % 2 == 0:
             lambda_W = lambda_W_prev
@@ -38,10 +34,10 @@ class Sinkhorn:
 
         return lambda_W, lambda_L
 
-    def iterate(self, cost_matrix, lambda_L, lambda_W):
+    def iterate(self, cost_matrix):
 
-        lambda_Ln = np.full((self.n,), 0.0, dtype=np.double)
-        lambda_Wn = np.full((self.n,), 0.0, dtype=np.double)
+        lambda_L = np.zeros(self.n)
+        lambda_W = np.zeros(self.n)
         # r = None
 
         for k in range(self.num_iter):
@@ -58,7 +54,6 @@ class Sinkhorn:
 
         r = self.rec_d_i_j(lambda_Ln, lambda_Wn, cost_matrix)
         # self.multistage_i += 1
-
         return r, lambda_L, lambda_W
 
     def rec_d_i_j(self, lambda_L, lambda_W, cost_matrix):
