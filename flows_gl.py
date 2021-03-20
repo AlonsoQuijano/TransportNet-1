@@ -1,3 +1,6 @@
+import json
+import pickle
+
 import numpy as np
 from glumpy import app, glm, gloo, gl
 from glumpy.graphics.collections import SegmentCollection, MarkerCollection
@@ -5,7 +8,16 @@ from glumpy.transforms import Position, OrthographicProjection, PanZoom, Viewpor
 from numpy.random import random
 import pandas as pd
 
-links = pd.read_csv('data/flows_to_draw.csv')
+res_root = 'Stable Dynamic & Beckman/KEV_res/'
+
+with open(res_root + 'input_data/graph_data.pickle', 'rb') as fp:
+    graph_data = pickle.load(fp)
+
+links = graph_data['graph_table']
+
+flows = np.loadtxt(res_root + 'multi/flows/0_flows.txt', delimiter = ' ')
+links['flow'] = flows
+
 links.flow /= links.flow.max()
 # links = links[::10]
 dx, dy = links.xa.mean(), links.ya.mean()
@@ -15,9 +27,22 @@ links.ya -= dy
 links.yb -= dy
 
 
-ss = pd.read_csv('data/soursinks.csv')
-ss.x -= dx
-ss.y -= dy
+
+nodes = graph_data['nodes_table']
+
+with open(res_root + 'input_data/L_dict.json', 'r') as fp:
+    L_dict = json.load(fp)
+
+sx, sy = [], []
+for source in L_dict:
+    n = int(source)
+    sx.append(nodes.x[n])
+    sy.append(nodes.y[n])
+
+sx, sy = np.array(sx), np.array(sy)
+
+sx -= dx
+sy -= dy
 
 # app.use('freeglut')
 window = app.Window(width=1200, height=600, color=(1,1,1,1))
@@ -53,7 +78,7 @@ N = np.random.uniform(0, 800, (n,3)) * (1,1,0)
 markers = MarkerCollection(marker='disc', transform=transform, viewport=viewport)
 # markers.append(N, size=15, linewidth=2, itemsize=1,
 #                fg_color=(0,0,0,1), bg_color=(0,0,0,1))
-markers.append(np.array([ss.x, ss.y, np.zeros(len(ss.x))]).T, size=10, linewidth=2,
+markers.append(np.array([sx, sy, np.zeros(len(sx))]).T, size=10, linewidth=2,
                fg_color=(1,1,0,1), bg_color=(1,.5,.5,1))
 
 segments['antialias'] = 1

@@ -9,11 +9,8 @@ import sinkhorn as skh
 import model as md
 import csv
 
-net_name = '../data/vl_links.txt'
-trips_name = '../data/vl_trips.txt'
+nodes_name = None
 parsers = 'vladik'
-# net_name = '../data/SiouxFalls_net.tntp'
-# trips_name = '../data/SiouxFalls_trips.tntp'
 # parsers = 'tntp'
 
 best_sink_beta = 0.005
@@ -42,8 +39,9 @@ def get_LW(L_dict, W_dict, new_to_old):
 if __name__ == '__main__':
 
     handler = dh.DataHandler()
-    graph_data = handler.GetGraphData(net_name, eval(f'handler.{parsers}_net_parser'), columns=['init_node', 'term_node', 'capacity', 'free_flow_time'])
-    L_dict, W_dict = handler.GetLW_dicts(trips_name, eval(f'handler.{parsers}_corr_parser'))
+    graph_data = handler.GetGraphData(eval(f'handler.{parsers}_net_parser'), columns=['init_node', 'term_node', 'capacity', 'free_flow_time', 'xa', 'xb', 'ya', 'yb'])
+    L_dict, W_dict = handler.GetLW_dicts(eval(f'handler.{parsers}_corr_parser'))
+    handler.save_input_data_to_res(graph_data, L_dict, W_dict)
 
     handler = dh.DataHandler()
 
@@ -69,6 +67,7 @@ if __name__ == '__main__':
 
     if parsers == 'vladik':
         best_sink_beta = T.shape[0] / np.nansum(T)
+
 
     for ms_i in range(250):
 

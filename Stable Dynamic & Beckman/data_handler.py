@@ -1,3 +1,6 @@
+import json
+import pickle
+
 from scanf import scanf
 import re
 import numpy as np
@@ -6,12 +9,15 @@ import transport_graph as tg
 import copy
 import graph_tool.topology as gtt
 
+TNTP_TRIPS_FNAME = '../data/SiouxFalls_trips.tntp'
+TNTP_NET_FNAME = '../data/SiouxFalls_net.tntp'
+
 #TODO: DOCUMENTATION!!!
 class DataHandler:
     @staticmethod
-    def vladik_net_parser(file_name):
+    def vladik_net_parser():
         graph_data = {}
-        links = pd.read_csv(file_name, sep='\t',skiprows=0)
+        links = pd.read_csv('../data/vl_links.txt', sep='\t',skiprows=0)
         links_ab = links[['ANODE', 'BNODE', 'cap_ab']].copy()
         links_ab.columns = ['init_node', 'term_node', 'capacity']
         links_ab['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ab  # in hours
@@ -28,14 +34,25 @@ class DataHandler:
         df.drop_duplicates(inplace=True)
         print('shape after drop', df.shape)
 
+        nodes = pd.read_csv('../data/vl_nodes.txt', sep='\t',skiprows=0).set_index('node')
+        xa, xb, ya, yb = [], [], [], []
+        for i in df.index:
+            an, bn = df.init_node[i], df.term_node[i]
+            xa.append(nodes.x[an])
+            xb.append(nodes.x[bn])
+            ya.append(nodes.y[an])
+            yb.append(nodes.y[bn])
+            
+        df['xa'], df['xb'], df['ya'], df['yb'] = xa, xb, ya, yb
+
         # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
 
-        return df, 1
+        return df, nodes, 1
 
     @staticmethod
-    def tntp_net_parser(file_name):
+    def tntp_net_parser():
         metadata = ''
-        with open(file_name, 'r') as myfile:
+        with open(TNTP_NET_FNAME, 'r') as myfile:
             for index, line in enumerate(myfile):
                 if re.search(r'^~', line) is not None:
                     skip_lines = index + 1
@@ -54,28 +71,30 @@ class DataHandler:
         dtypes = {'init_node' : np.int32, 'term_node' : np.int32, 'capacity' : np.float64, 'length': np.float64,
                   'free_flow_time': np.float64, 'b': np.float64, 'power': np.float64, 'speed': np.float64,'toll': np.float64,
                   'link_type' : np.int32}
-        df = pd.read_csv(file_name, names = headlist, dtype = dtypes, skiprows = skip_lines, sep = r'[\s;]+', engine='python',
+        df = pd.read_csv(TNTP_NET_FNAME, names = headlist, dtype = dtypes, skiprows = skip_lines, sep = r'[\s;]+', engine='python',
                          index_col = False)
-        return df, first_thru_node
+        nt = None
+        return df, nt, first_thru_node
 
-    def GetGraphData(self, file_name, parser, columns):
+    def GetGraphData(self, parser, columns):
         
         graph_data = {}
-        df, first_thru_node = parser(file_name)
-        df = df[columns]
-        df.insert(loc = list(df).index('init_node') + 1, column = 'init_node_thru', value = (df['init_node'] >= first_thru_node))
-        df.insert(loc = list(df).index('term_node') + 1, column = 'term_node_thru', value = (df['term_node'] >= first_thru_node))
-        graph_data['graph_table'] = df
-        graph_data['nodes number'] = len(set(df.init_node.values) | set(df.term_node.values))
-        graph_data['links number'] = df.shape[0]
+        gt, nt, first_thru_node = parser()
+        gt = gt[columns]
+        gt.insert(loc = list(gt).index('init_node') + 1, column = 'init_node_thru', value = (gt['init_node'] >= first_thru_node))
+        gt.insert(loc = list(gt).index('term_node') + 1, column = 'term_node_thru', value = (gt['term_node'] >= first_thru_node))
+        graph_data['graph_table'] = gt
+        graph_data['nodes number'] = len(set(gt.init_node.values) | set(gt.term_node.values))
+        graph_data['links number'] = gt.shape[0]
+        graph_data['nodes_table'] = nt
         # graph_data['zones number'] = graph_data['nodes number'] # nodes in corr graph actually
         print('nUMBER OF NODES, LINKS: ', graph_data['nodes number'], 
             graph_data['links number'])#, graph_data['zones number'])
         return graph_data 
         
     @staticmethod
-    def vladik_corr_parser(file_name):
-        with open(file_name, 'r') as fin:
+    def vladik_corr_parser():
+        with open('../data/vl_trips.txt', 'r') as fin:
             fin = list(fin)[1:]
             nodes = [int(x) for x in fin[0].split(' ')]
             L = [int(x) for x in fin[1].split(' ')]
@@ -84,8 +103,8 @@ class DataHandler:
         return dict(zip(nodes, L)), dict(zip(nodes, W))
 
     @staticmethod
-    def tntp_corr_parser(file_name):
-        with open(file_name, 'r') as myfile:
+    def tntp_corr_parser():
+        with open(TNTP_TRIPS_FNAME, 'r') as myfile:
             trips_data = myfile.read()
 
         total_od_flow = scanf('<TOTAL OD FLOW> %f', trips_data)[0]
@@ -118,10 +137,20 @@ class DataHandler:
         return T
 
     @staticmethod
-    def GetLW_dicts(file_name, parser):
-        L_dict, W_dict = parser(file_name)
+    def GetLW_dicts(parser):
+        L_dict, W_dict = parser()
 
         return L_dict, W_dict
+
+    @staticmethod
+    def save_input_data_to_res(graph_data, L_dict, W_dict):
+        root = 'KEV_res/input_data/'
+        with open(root + 'graph_data.pickle', 'wb') as fp:
+            pickle.dump(graph_data, fp)
+        with open(root + 'L_dict.json', 'w') as fp:
+            json.dump(L_dict, fp)
+        with open(root + 'W_dict.json', 'w') as fp:
+            json.dump(W_dict, fp)
 
 
     def ReadAnswer(self, filename):
@@ -164,7 +193,7 @@ class DataHandler:
     #     return correspondence_matrix
 
     def reindexed_empty_corr_matrix(self, corr_dict):
-        print('corr_dict:', corr_dict)
+        # print('corr_dict:', corr_dict)
         indexes = list(set(corr_dict.keys()) | set(sum([d['targets'] for d in corr_dict.values()], [])))
 
         print('indexes:', indexes)
@@ -294,3 +323,4 @@ class DataHandler:
                 T_new[i][j] = T[i][j] - paycheck[j]
 
         return T_new
+
