@@ -71,8 +71,8 @@ for i in links.index:
     f = links.flow[i]
     I = 0.3 + f / 2 if f > 0 else 0.05
     r = f
-    segments.append(np.array([links.xa[i], links.ya[i], 0]), np.array([links.xb[i], links.yb[i], 0]),
-                    linewidth=3, color = (r, 0, 0, I))
+    segments.append([[links.xa[i], links.ya[i], 0]], [[links.xb[i], links.yb[i], 0]],
+                        linewidth=3, color = (r, 0, 0, I))
 
 N = np.random.uniform(0, 800, (n,3)) * (1,1,0)
 markers = MarkerCollection(marker='disc', transform=transform, viewport=viewport)
