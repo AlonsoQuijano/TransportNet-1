@@ -15,7 +15,8 @@ with open(res_root + 'input_data/graph_data.pickle', 'rb') as fp:
 
 links = graph_data['graph_table']
 
-flows = np.loadtxt(res_root + 'multi/flows/0_flows.txt', delimiter = ' ')
+flows = np.loadtxt(res_root + 'multi/flows/1_flows.txt', delimiter = ' ')
+# flows = np.abs(np.loadtxt(res_root + 'multi/times/30_time.txt', delimiter = ' ') - np.loadtxt(res_root + 'multi/times/0_time.txt', delimiter = ' '))
 links['flow'] = flows
 
 links.flow /= links.flow.max()

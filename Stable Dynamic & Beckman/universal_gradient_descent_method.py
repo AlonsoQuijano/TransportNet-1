@@ -25,7 +25,7 @@ def universal_gradient_descent_method(oracle, prox, primal_dual_oracle,
     t_prev = np.copy(t_start)
     t = None
 
-    flows_weighted = primal_dual_oracle.get_flows(t_start) 
+    flows_weighted = primal_dual_oracle.get_flows(t_start)
     t_weighted = np.copy(t_start)
     primal, dual, duality_gap_init, state_msg = primal_dual_oracle(flows_weighted, t_weighted)
     if save_history:

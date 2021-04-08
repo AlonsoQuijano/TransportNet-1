@@ -81,6 +81,7 @@ if __name__ == '__main__':
         # зачем тут nan_to_num если Т уже через него пропущена с другим nan=
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
         rec, _, _ = s.iterate(cost_matrix)
+        print('rec', rec)
         sink_correspondences_dict = handler.corr_matrix_to_dict(rec, new_to_old)
 
         # L, W, people_num = get_LW(rec)
