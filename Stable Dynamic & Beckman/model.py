@@ -20,6 +20,7 @@ class Model:
         self.inds_to_nodes, self.graph_correspondences, self.graph_table = \
             self._index_nodes(graph_data['graph_table'], graph_correspondences, fill_corrs=False)
         self.graph = tg.TransportGraph(self.graph_table, len(self.inds_to_nodes), graph_data['links number'])
+        self.init_flows = None
 
     def refresh_correspondences(self, graph_data, corrs_dict):
         self.inds_to_nodes, self.graph_correspondences, _ = self._index_nodes(graph_data['graph_table'], corrs_dict)
@@ -112,7 +113,7 @@ class Model:
         else:
             result = solver_func(oracle, prox,
                                  primal_dual_calculator,
-                                 t_start = self.graph.initial_times,
+                                 t_start = self.graph.initial_times, init_flows=self.init_flows,
                                  **solver_kwargs)
         #getting travel times of every non-zero trips between zones:
         result['zone travel times'] = {}
@@ -120,6 +121,7 @@ class Model:
         subg_t = phi_big_oracle.grad(result['times'])
         # print('att! ', subg_t, np.shape(subg_t))
         result['subg'] =  subg_t
+        self.init_flows = result['flows']
 
         for source in self.graph_correspondences:
 

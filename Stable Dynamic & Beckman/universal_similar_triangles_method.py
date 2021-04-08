@@ -5,7 +5,7 @@ from history import History
 def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
                                        t_start, L_init = None, max_iter = 1, #1000,
                                        eps = 1e-5, eps_abs = None, stop_crit = 'max_iter',
-                                       verbose_step = 100, verbose = False, save_history = False):
+                                       verbose_step = 100, verbose = False, save_history = False, init_flows=None):
     if stop_crit == 'dual_gap_rel':
         def crit():
             return duality_gap <= eps * duality_gap_init
@@ -21,8 +21,6 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
         raise ValueError("stop_crit should be callable or one of the following names: \
                          'dual_gap', 'dual_gap_rel', 'max iter'")
 
-
-    
     L_value = L_init if L_init is not None else np.linalg.norm(oracle.grad(t_start))
     
     A_prev = 0.0
@@ -32,7 +30,7 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
     grad_sum = None
     grad_sum_prev = np.zeros(len(t_start))
 
-    flows_weighted = primal_dual_oracle.get_flows(y_start) 
+    flows_weighted = primal_dual_oracle.get_flows(y_start) if init_flows is None else init_flows
     primal, dual, duality_gap_init, state_msg = primal_dual_oracle(flows_weighted, y_start)
     if save_history:
         history = History('iter', 'primal_func', 'dual_func', 'dual_gap', 'inner_iters')
@@ -50,11 +48,10 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
             inner_iters_num += 1
             
             alpha = 0.5 / L_value + sqrt(0.25 / L_value**2 + A_prev / L_value)
+            print('L_value, A, alpha', L_value, A, alpha)
             A = A_prev + alpha
-
             y = (alpha * u_prev + A_prev * t_prev) / A
             grad_y = oracle.grad(y)
-            flows = primal_dual_oracle.get_flows(y) #grad() is called here
             grad_sum = grad_sum_prev + alpha * grad_y
             u = prox(grad_sum / A, y_start, 1.0 / A)
             t = (alpha * u + A_prev * t_prev) / A
@@ -62,7 +59,9 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
             left_value = (oracle.func(y) + np.dot(grad_y, t - y) + 
                           0.5 * alpha / A * eps_abs) - oracle.func(t)
             right_value = - 0.5 * L_value * np.sum((t - y)**2)
+
             if left_value >= right_value:
+                flows = primal_dual_oracle.get_flows(y)  # grad() is called here
                 break
             else:
                 L_value *= 2
@@ -73,6 +72,7 @@ def universal_similar_triangles_method(oracle, prox, primal_dual_oracle,
         t_prev = t
         u_prev = u
         grad_sum_prev = grad_sum
+        print('A, alpha', A, alpha)
         flows_weighted = (flows_weighted * (A - alpha) + flows * alpha ) / A
         
         primal, dual, duality_gap, state_msg = primal_dual_oracle(flows_weighted, t)

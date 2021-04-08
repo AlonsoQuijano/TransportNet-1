@@ -17,7 +17,7 @@ class DataHandler:
     @staticmethod
     def vladik_net_parser():
         graph_data = {}
-        links = pd.read_csv('../data/vl_links.txt', sep='\t',skiprows=0)
+        links = pd.read_csv('../data/vl_links_test.txt', sep='\t',skiprows=0)
         links_ab = links[['ANODE', 'BNODE', 'cap_ab']].copy()
         links_ab.columns = ['init_node', 'term_node', 'capacity']
         links_ab['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ab  # in hours
@@ -94,7 +94,7 @@ class DataHandler:
         
     @staticmethod
     def vladik_corr_parser():
-        with open('../data/vl_trips.txt', 'r') as fin:
+        with open('../data/vl_trips_test.txt', 'r') as fin:
             fin = list(fin)[1:]
             nodes = [int(x) for x in fin[0].split(' ')]
             L = [int(x) for x in fin[1].split(' ')]

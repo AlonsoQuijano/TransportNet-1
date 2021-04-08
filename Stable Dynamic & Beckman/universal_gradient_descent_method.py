@@ -4,7 +4,7 @@ from history import History
 def universal_gradient_descent_method(oracle, prox, primal_dual_oracle,
                                       t_start, L_init = None, max_iter = 1000,
                                       eps = 1e-5, eps_abs = None, stop_crit = 'dual_gap_rel',
-                                      verbose_step = 100, verbose = False, save_history = False):
+                                      verbose_step = 100, verbose = False, save_history = False, init_flows=None):
     if stop_crit == 'dual_gap_rel':
         def crit():
             return duality_gap <= eps * duality_gap_init
@@ -25,7 +25,7 @@ def universal_gradient_descent_method(oracle, prox, primal_dual_oracle,
     t_prev = np.copy(t_start)
     t = None
 
-    flows_weighted = primal_dual_oracle.get_flows(t_start) 
+    flows_weighted = primal_dual_oracle.get_flows(t_start) if init_flows is None else init_flows
     t_weighted = np.copy(t_start)
     primal, dual, duality_gap_init, state_msg = primal_dual_oracle(flows_weighted, t_weighted)
     if save_history:
