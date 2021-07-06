@@ -2,6 +2,7 @@ import warnings
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import numpy as np
+
 np.set_printoptions(suppress=True)
 
 import data_handler as dh
@@ -14,23 +15,24 @@ parsers = 'vladik'
 # parsers = 'tntp'
 
 best_sink_beta = 0.005
-sink_num_iter, sink_eps = 2500, 10**(-8)
+sink_num_iter, sink_eps = 2500, 10 ** (-8)
 INF_COST = 100
 INF_TIME = 1e10
 
 
-def get_times_inverse_func(capacity, times, rho = 0.15, mu=0.25):
+def get_times_inverse_func(capacity, times, rho=0.15, mu=0.25):
     capacities = capacity.to_numpy()
     # FIXME  IS IT A BUG???
-    freeflowtimes = times #graph_table['free_flow_time'].to_numpy()
+    freeflowtimes = times  # graph_table['free_flow_time'].to_numpy()
     # print('hm: ', np.power(times / freeflowtimes, mu))
-    return np.transpose( (capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
+    return np.transpose((capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
+
 
 def get_LW(L_dict, W_dict, new_to_old):
     L = np.array([L_dict[new_to_old[i]] for i in range(len(L_dict))], dtype=np.double)
     W = np.array([W_dict[new_to_old[i]] for i in range(len(W_dict))], dtype=np.double)
     people_num = L.sum()
-    print(type(L))
+    # print(type(L))
     L /= np.nansum(L)
     W /= np.nansum(W)
     return L, W, people_num
@@ -39,7 +41,9 @@ def get_LW(L_dict, W_dict, new_to_old):
 if __name__ == '__main__':
 
     handler = dh.DataHandler()
-    graph_data = handler.GetGraphData(eval(f'handler.{parsers}_net_parser'), columns=['init_node', 'term_node', 'capacity', 'free_flow_time', 'xa', 'xb', 'ya', 'yb'])
+    graph_data = handler.GetGraphData(eval(f'handler.{parsers}_net_parser'),
+                                      columns=['init_node', 'term_node', 'capacity', 'free_flow_time', 'xa', 'xb', 'ya',
+                                               'yb'])
     L_dict, W_dict = handler.GetLW_dicts(eval(f'handler.{parsers}_corr_parser'))
     handler.save_input_data_to_res(graph_data, L_dict, W_dict)
 
@@ -54,20 +58,19 @@ if __name__ == '__main__':
     empty_corr_matrix, old_to_new, new_to_old = handler.reindexed_empty_corr_matrix(empty_corr_dict)
     print('fill correspondence_matrix')
 
-    print('init LW')
+    # print('init LW')
     L, W, people_num = get_LW(L_dict, W_dict, new_to_old)
     total_od_flow = people_num
-    print('L, W', L, W)
+    # print('L, W', L, W)
 
     model = md.Model(graph_data, empty_corr_dict, total_od_flow, mu=0.25)
 
     T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
-                                             graph_data, model)
+                                  graph_data, model)
     T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
     if parsers == 'vladik':
         best_sink_beta = T.shape[0] / np.nansum(T)
-
 
     for ms_i in range(250):
 
@@ -91,8 +94,9 @@ if __name__ == '__main__':
         W_new /= np.nansum(W_new)
         # print('L:', np.isclose(L, L_new) , sep = '\n')
         # print('W:', W == W_new, sep = '\n')
-        assert(np.allclose(L, L_new))
-        assert(np.allclose(W, W_new))
+
+        # assert (np.allclose(L, L_new))
+        # assert (np.allclose(W, W_new))
 
         model.refresh_correspondences(graph_data, sink_correspondences_dict)
 
@@ -108,19 +112,17 @@ if __name__ == '__main__':
         T_dict = result['zone travel times']
         T = handler.T_matrix_from_dict(T_dict, rec.shape, old_to_new)
 
-
-
-
         # no impact on iterations from code below
 
-        flows_inverse_func = get_times_inverse_func(graph_data['graph_table']['capacity'], result['times'], rho=0.15, mu=0.25)
+        flows_inverse_func = get_times_inverse_func(graph_data['graph_table']['capacity'], result['times'], rho=0.15,
+                                                    mu=0.25)
 
         subg = result['subg']
 
         # for key in result['subg'].keys():
         #     subg[key[0] - 1][key[1] - 1] = result['subg'][key]
 
-        print('subg shape: ', np.shape(subg), 'flows_inv shape: ',  np.shape(flows_inverse_func))
+        print('subg shape: ', np.shape(subg), 'flows_inv shape: ', np.shape(flows_inverse_func))
 
         if max_iter == 2:
 
@@ -146,4 +148,3 @@ if __name__ == '__main__':
         w = csv.DictWriter(f, result.keys())
         w.writeheader()
         w.writerow(result)
-
