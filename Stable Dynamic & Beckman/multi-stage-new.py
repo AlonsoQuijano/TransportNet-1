@@ -10,9 +10,9 @@ import sinkhorn as skh
 import model as md
 import csv
 
+from conf import parsers
+
 nodes_name = None
-parsers = 'vladik'
-# parsers = 'tntp'
 
 best_sink_beta = 0.005
 sink_num_iter, sink_eps = 2500, 10 ** (-8)
@@ -83,6 +83,7 @@ if __name__ == '__main__':
 
         # зачем тут nan_to_num если Т уже через него пропущена с другим nan=
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
+        print('cm', cost_matrix)
         rec, _, _ = s.iterate(cost_matrix)
         print('rec', rec)
         sink_correspondences_dict = handler.corr_matrix_to_dict(rec, new_to_old)
