@@ -1,8 +1,8 @@
 # Attention: as shown on the table above
 # nodes indexed from 0 to ...
 # edges indexed from 0 to ...
-import graph_tool.all as gt
 import graph_tool.topology as gtt
+import graph_tool.all as gt
 import numpy as np
 import math
 
