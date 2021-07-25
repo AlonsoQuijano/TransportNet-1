@@ -9,6 +9,8 @@ import transport_graph as tg
 import copy
 import graph_tool.topology as gtt
 
+import conf
+
 TNTP_TRIPS_FNAME = '../data/SiouxFalls_trips.tntp'
 TNTP_NET_FNAME = '../data/SiouxFalls_net.tntp'
 
@@ -17,7 +19,7 @@ class DataHandler:
     @staticmethod
     def vladik_net_parser():
         graph_data = {}
-        links = pd.read_csv('../data/vl_links_test.txt', sep='\t',skiprows=0)
+        links = pd.read_csv(conf.vl_links_file, sep='\t',skiprows=0)
         links_ab = links[['ANODE', 'BNODE', 'cap_ab']].copy()
         links_ab.columns = ['init_node', 'term_node', 'capacity']
         links_ab['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ab  # in hours
@@ -34,7 +36,7 @@ class DataHandler:
         df.drop_duplicates(inplace=True)
         print('shape after drop', df.shape)
 
-        nodes = pd.read_csv('../data/vl_nodes.txt', sep='\t',skiprows=0).set_index('node')
+        nodes = pd.read_csv('../data/vl_nodes.txt', sep='\t', skiprows=0).set_index('node')
         xa, xb, ya, yb = [], [], [], []
         for i in df.index:
             an, bn = df.init_node[i], df.term_node[i]
