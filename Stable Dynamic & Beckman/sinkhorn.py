@@ -59,16 +59,15 @@ class Sinkhorn:
     def rec_d_i_j(self, lambda_L, lambda_W, cost_matrix):
 
         er = np.zeros((self.n, self.n))
+        bottom = self.B(cost_matrix, lambda_L, lambda_W)
 
         for i, lambda_L_i in enumerate(lambda_L, 0):
             for j, lambda_W_j in enumerate(lambda_W, 0):
-                # print('i, j: ', i, j)
-                # print(cost_matrix[i][j])
+                
                 cost_matrix_i_j = cost_matrix[i][j]
                 top = self.B_i_j(cost_matrix_i_j, lambda_L_i, lambda_W_j)
-                bottom = self.B(cost_matrix, lambda_L, lambda_W)
+
                 error = top / bottom
-                # print('er: ', er, 'i, j: ', i, j)
                 er[i][j] = error
 
         return er * self.people_num
