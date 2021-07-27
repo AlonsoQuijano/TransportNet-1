@@ -96,7 +96,7 @@ class DataHandler:
         
     @staticmethod
     def vladik_corr_parser():
-        with open('../data/vl_trips_test.txt', 'r') as fin:
+        with open(conf.vl_trips_file, 'r') as fin:
             fin = list(fin)[1:]
             nodes = [int(x) for x in fin[0].split(' ')]
             L = [int(x) for x in fin[1].split(' ')]
