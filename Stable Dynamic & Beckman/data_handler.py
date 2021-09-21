@@ -11,15 +11,18 @@ import graph_tool.topology as gtt
 
 import conf
 
-TNTP_TRIPS_FNAME = '../data/SiouxFalls_trips.tntp'
-TNTP_NET_FNAME = '../data/SiouxFalls_net.tntp'
+pd.set_option('display.max_columns', None)
 
-#TODO: DOCUMENTATION!!!
+TNTP_TRIPS_FNAME = '../data/Custom_trips.tntp'  # '../data/SiouxFalls_trips.tntp'
+TNTP_NET_FNAME = '../data/Custom_trips.tntp'  # '../data/SiouxFalls_net.tntp'
+
+
+# TODO: DOCUMENTATION!!!
 class DataHandler:
     @staticmethod
     def vladik_net_parser():
         graph_data = {}
-        links = pd.read_csv(conf.vl_links_file, sep='\t',skiprows=0)
+        links = pd.read_csv(conf.vl_links_file, sep='\t', skiprows=0)
         links_ab = links[['ANODE', 'BNODE', 'cap_ab']].copy()
         links_ab.columns = ['init_node', 'term_node', 'capacity']
         links_ab['free_flow_time'] = (links.LENGTH / 1000) / links.speed_ab  # in hours
@@ -29,7 +32,7 @@ class DataHandler:
 
         df = links_ab.append(links_ba, ignore_index=True)
         df_inv = df.copy()
-        df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time'] # make graph effectively undirected
+        df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time']  # make graph effectively undirected
         df = df.append(df_inv, ignore_index=True)
         df = df[df.capacity > 0]
         print('shape before drop', df.shape)
@@ -44,7 +47,7 @@ class DataHandler:
             xb.append(nodes.x[bn])
             ya.append(nodes.y[an])
             yb.append(nodes.y[bn])
-            
+
         df['xa'], df['xb'], df['ya'], df['yb'] = xa, xb, ya, yb
 
         # graph_data['nodes number'] = scanf('<NUMBER OF NODES> %d', metadata)[0]
@@ -62,38 +65,73 @@ class DataHandler:
                     break
                 else:
                     metadata += line
-
         graph_data = {}
         nn = scanf('<NUMBER OF NODES> %d', metadata)[0]
         nl = scanf('<NUMBER OF LINKS> %d', metadata)[0]
         nz = scanf('<NUMBER OF ZONES> %d', metadata)[0]
-        print('NUMBER OF NODES, LINKS, ZONES: ', nn, nl, nz)
         first_thru_node = scanf('<FIRST THRU NODE> %d', metadata)[0]
 
-        dtypes = {'init_node' : np.int32, 'term_node' : np.int32, 'capacity' : np.float64, 'length': np.float64,
-                  'free_flow_time': np.float64, 'b': np.float64, 'power': np.float64, 'speed': np.float64,'toll': np.float64,
-                  'link_type' : np.int32}
-        df = pd.read_csv(TNTP_NET_FNAME, names = headlist, dtype = dtypes, skiprows = skip_lines, sep = r'[\s;]+', engine='python',
-                         index_col = False)
+        dtypes = {'init_node': np.int32, 'term_node': np.int32, 'capacity': np.float64, 'length': np.float64,
+                  'free_flow_time': np.float64, 'b': np.float64, 'power': np.float64, 'speed': np.float64,
+                  'toll': np.float64,
+                  'link_type': np.int32}
+        df = pd.read_csv(TNTP_NET_FNAME, names=headlist, dtype=dtypes, skiprows=skip_lines, sep=r'[\s;]+',
+                         engine='python',
+                         index_col=False)
         nt = None
         return df, nt, first_thru_node
 
+    @staticmethod
+    def custom_net_parser():
+
+        # dtypes = {'init_node': np.int32, 'term_node': np.int32, 'capacity': np.float64, 'length': np.float64,
+        #           'free_flow_time': np.float64, 'b': np.float64, 'power': np.float64, 'speed': np.float64,
+        #           'toll': np.float64,
+        #           'link_type': np.int32}
+
+        data = {'free_flow_time': [1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0],
+                'init_node': [1, 1, 2, 2, 1, 3, 3, 2],
+                'term_node': [2, 2, 1, 1, 3, 1, 2, 3],
+                'capacity': [1999, 4000, 4000, 1999, 4000, 4000, 4000, 4000],
+                'length': [1000, 2000, 2000, 1000, 2000, 2000, 2000, 2000],
+                'b': [0, 0, 0, 0, 0, 0, 0, 0],
+                'power': [0, 0, 0, 0, 0, 0, 0, 0],
+                'speed': [0, 0, 0, 0, 0, 0, 0, 0],
+                'toll': [0, 0, 0, 0, 0, 0, 0, 0],
+                'link_type': [0, 0, 0, 0, 0, 0, 0, 0]}
+
+        df = pd.DataFrame(data=data)
+        nt = None
+        first_thru_node = 1
+        return df, nt, first_thru_node
+
+    @staticmethod
+    def custom_corr_parser():
+
+        total_od_flow = 12000
+
+        L_dict = {1: 4000, 2: 4000, 3: 4000}
+        W_dict = {1: 4000, 2: 4000, 3: 4000}
+
+        return L_dict, W_dict
+
     def GetGraphData(self, parser, columns):
-        
+
         graph_data = {}
         gt, nt, first_thru_node = parser()
         gt = gt[columns]
-        gt.insert(loc = list(gt).index('init_node') + 1, column = 'init_node_thru', value = (gt['init_node'] >= first_thru_node))
-        gt.insert(loc = list(gt).index('term_node') + 1, column = 'term_node_thru', value = (gt['term_node'] >= first_thru_node))
+
+        gt.insert(loc=list(gt).index('init_node') + 1, column='init_node_thru',
+                  value=(gt['init_node'] >= first_thru_node))
+        gt.insert(loc=list(gt).index('term_node') + 1, column='term_node_thru',
+                  value=(gt['term_node'] >= first_thru_node))
         graph_data['graph_table'] = gt
         graph_data['nodes number'] = len(set(gt.init_node.values) | set(gt.term_node.values))
         graph_data['links number'] = gt.shape[0]
         graph_data['nodes_table'] = nt
-        # graph_data['zones number'] = graph_data['nodes number'] # nodes in corr graph actually
-        print('nUMBER OF NODES, LINKS: ', graph_data['nodes number'], 
-            graph_data['links number'])#, graph_data['zones number'])
-        return graph_data 
-        
+
+        return graph_data
+
     @staticmethod
     def vladik_corr_parser():
         with open(conf.vl_trips_file, 'r') as fin:
@@ -110,8 +148,7 @@ class DataHandler:
             trips_data = myfile.read()
 
         total_od_flow = scanf('<TOTAL OD FLOW> %f', trips_data)[0]
-        print('total_od_flow scanned', total_od_flow)
-        #zones_number = scanf('<NUMBER OF ZONES> %d', trips_data)[0]
+        # zones_number = scanf('<NUMBER OF ZONES> %d', trips_data)[0]
 
         origins_data = re.findall(r'Origin[\s\d.:;]+', trips_data)
 
@@ -127,7 +164,7 @@ class DataHandler:
                     W_dict[target] = 0
                 W_dict[target] += corrs
 
-        return L_dict, W_dict#, od
+        return L_dict, W_dict  # , od
 
     @staticmethod
     def T_matrix_from_dict(T_dict, shape, old_to_new):
@@ -154,20 +191,19 @@ class DataHandler:
         with open(root + 'W_dict.json', 'w') as fp:
             json.dump(W_dict, fp)
 
-
     def ReadAnswer(self, filename):
         with open(filename) as myfile:
             lines = myfile.readlines()
-        lines = lines[1 :]
+        lines = lines[1:]
         flows = []
         times = []
         for line in lines:
             _, _, flow, time = scanf('%d %d %f %f', line)
             flows.append(flow)
             times.append(time)
-        return {'flows' : flows, 'times' : times}
+        return {'flows': flows, 'times': times}
 
-    #### Katya multi-stage methods
+    #### Katia multi-stage methods
 
     def create_C(self, df, n, column_name):
         C = np.full((n, n), np.nan, dtype=np.double)
@@ -179,26 +215,10 @@ class DataHandler:
             C[i, j] = raw_data_line[column_ind]
         return C
 
-    # def from_dict_to_cor_matr(self, dictnr, n):
-    #     correspondence_matrix = np.full((n, n), np.nan, dtype=np.double)
-    #     i = 1
-    #     if n > 1:
-    #         for key in dictnr.keys(): #dictnr[i].keys()
-    #             for k, v in zip(dictnr[i]['targets'], dictnr[i]['corrs']):
-    #                 correspondence_matrix[key - 1][k - 1] = v # костыль!
-    #             i += 1
-    #     else:
-    #         for key in dictnr.keys():
-    #             for k, v in zip(dictnr[i][key].keys(), dictnr[i][key].values()):
-    #                 correspondence_matrix[int(key) - 1][int(k)] = v
-    #     # print('corr mtrx: ', correspondence_matrix)
-    #     return correspondence_matrix
-
     def reindexed_empty_corr_matrix(self, corr_dict):
         # print('corr_dict:', corr_dict)
         indexes = list(set(corr_dict.keys()) | set(sum([d['targets'] for d in corr_dict.values()], [])))
 
-        print('indexes:', indexes)
         n = len(indexes)
         new_indexes = np.arange(n)
         old_to_new = dict(zip(indexes, new_indexes))
@@ -219,7 +239,6 @@ class DataHandler:
         return d
 
     def distributor_L_W(self, array):
-        return array
         max_value = np.max(array)
         max_value_index = np.where(array == np.max(array))
 
@@ -236,37 +255,6 @@ class DataHandler:
         array[np.where(array == 0)[0]] = 1.0
 
         return array
-
-    # def get_t_from_shortest_distances(self, n, graph_data):
-    #
-    #     df = graph_data['graph_table']
-    #     T = None
-    #     i = 0
-    #     for source in range(n):
-    #
-    #         targets = [source]
-    #         targets += range(0, n)
-    #
-    #         graph_table = graph_data['graph_table']
-    #
-    #         graph = tg.TransportGraph(graph_table,
-    #                                   graph_data['links number'],
-    #                                   graph_data['nodes number'])
-    #
-    #
-    #         t_exp = np.array(df['free_flow_time'], dtype='float64').flatten()
-    #         distances, pred_map = graph.shortest_distances(source=source,
-    #                                                        targets=targets,
-    #                                                        times=t_exp)
-    #
-    #         if i == 0:
-    #             T = distances[1:]
-    #         else:
-    #             T = np.vstack([T, distances[1:]])
-    #         i += 1
-    #
-    #     return T
-
 
     def _index_nodes(self, graph_table, graph_correspondences, fill_corrs=True):
         table = graph_table.copy()
@@ -290,7 +278,6 @@ class DataHandler:
                 d['corrs']: dests['corrs']
             correspondences[init_to_ind[origin]] = d
 
-
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table
 
@@ -305,7 +292,6 @@ class DataHandler:
         graph_dh = tg.TransportGraph(graph_table_, len(inds_to_nodes), graph_data['links number'])
 
         for i, source in enumerate(graph_correspondences_):
-
             targets = graph_correspondences_[source]['targets']
             travel_times, _ = graph_dh.shortest_distances(source, targets, t)
             print(i, 'travel_times', travel_times)
@@ -325,4 +311,3 @@ class DataHandler:
                 T_new[i][j] = T[i][j] - paycheck[j]
 
         return T_new
-

@@ -12,8 +12,9 @@ import subgradient_descent_method as sd
 import frank_wolfe_method as fwm
 import weighted_dual_averages_method as wda
 
+
 class Model:
-    def __init__(self, graph_data, graph_correspondences, total_od_flow, mu = 0.25, rho = 0.15):
+    def __init__(self, graph_data, graph_correspondences, total_od_flow, mu=0.25, rho=0.15):
         self.total_od_flow = total_od_flow
         self.mu = mu
         self.rho = rho
@@ -35,7 +36,7 @@ class Model:
         # print(through_nodes)
         nodes = np.concatenate((inits, through_nodes, terms))
         nodes_inds = list(zip(nodes, np.arange(len(nodes))))
-        init_to_ind = dict(nodes_inds[ : len(inits) + len(through_nodes)])
+        init_to_ind = dict(nodes_inds[: len(inits) + len(through_nodes)])
         term_to_ind = dict(nodes_inds[len(inits):])
 
         table['init_node'] = table['init_node'].map(init_to_ind)
@@ -51,7 +52,7 @@ class Model:
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table
 
-    def find_equilibrium(self, solver_name = 'ustm', composite = True, solver_kwargs = {}, base_flows = None):
+    def find_equilibrium(self, solver_name='ustm', composite=True, solver_kwargs={}, base_flows=None):
         if solver_name == 'fwm':
             solver_func = fwm.frank_wolfe_method
             starting_msg = 'Frank-Wolfe method...'
@@ -59,13 +60,13 @@ class Model:
             solver_func = ustm.universal_similar_triangles_method
             starting_msg = 'Universal similar triangles method...'
             if not 'L_init' in solver_kwargs:
-                solver_kwargs['L_init'] = self.graph.max_path_length**0.5 * self.total_od_flow
+                solver_kwargs['L_init'] = self.graph.max_path_length ** 0.5 * self.total_od_flow
 
         elif solver_name == 'ugd':
             solver_func = ugd.universal_gradient_descent_method
             starting_msg = 'Universal gradient descent method...'
             if not 'L_init' in solver_kwargs:
-                solver_kwargs['L_init'] = self.graph.max_path_length**0.5 * self.total_od_flow
+                solver_kwargs['L_init'] = self.graph.max_path_length ** 0.5 * self.total_od_flow
 
         elif solver_name == 'wda':
             solver_func = wda.weighted_dual_averages_method
@@ -81,10 +82,10 @@ class Model:
         phi_big_oracle = oracles.PhiBigOracle(self.graph, self.graph_correspondences)
 
         h_oracle = oracles.HOracle(self.graph.initial_times, self.graph.capacities,
-                                   rho = self.rho, mu = self.mu)
+                                   rho=self.rho, mu=self.mu)
         primal_dual_calculator = dfc.PrimalDualCalculator(phi_big_oracle, h_oracle,
                                                           self.graph.initial_times, self.graph.capacities,
-                                                          rho = self.rho, mu = self.mu, base_flows = base_flows)
+                                                          rho=self.rho, mu=self.mu, base_flows=base_flows)
         if composite == True or solver_name == 'fwm':
             if not solver_name == 'fwm':
                 print('Composite optimization...')
@@ -93,6 +94,7 @@ class Model:
         else:
             print('Non-composite optimization...')
             oracle = phi_big_oracle + h_oracle
+
             def prox_func(grad, point, A):
                 """
                 Computes argmin_{t: t \in Q} <g, t> + A / 2 * ||t - p||^2
@@ -100,6 +102,7 @@ class Model:
                     A - constant, g - (sub)gradient vector, p - point at which prox is calculated
                 """
                 return np.maximum(point - grad / A, self.graph.initial_times)
+
             prox = prox_func
         print('Oracles created...')
         print(starting_msg)
@@ -107,22 +110,21 @@ class Model:
         if solver_name == 'fwm':
             result = solver_func(oracle,
                                  primal_dual_calculator,
-                                 t_start = self.graph.initial_times,
+                                 t_start=self.graph.initial_times,
                                  **solver_kwargs)
         else:
             result = solver_func(oracle, prox,
                                  primal_dual_calculator,
-                                 t_start = self.graph.initial_times,
+                                 t_start=self.graph.initial_times,
                                  **solver_kwargs)
-        #getting travel times of every non-zero trips between zones:
+        # getting travel times of every non-zero trips between zones:
         result['zone travel times'] = {}
         result['subg'] = {}
         subg_t = phi_big_oracle.grad(result['times'])
         # print('att! ', subg_t, np.shape(subg_t))
-        result['subg'] =  subg_t
+        result['subg'] = subg_t
 
         for source in self.graph_correspondences:
-
             targets = self.graph_correspondences[source]['targets']
             travel_times, pred_map = self.graph.shortest_distances(source, targets, result['times'])
 
