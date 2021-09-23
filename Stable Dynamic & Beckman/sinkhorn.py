@@ -33,10 +33,10 @@ class Sinkhorn:
         return lambda_W, lambda_L
 
     def iterate(self, cost_matrix):
+        cost_matrix[cost_matrix == 0.0] = 100.0
 
         lambda_L = np.zeros(self.n)
         lambda_W = np.zeros(self.n)
-        # r = None
 
         for k in range(self.num_iter):
 

@@ -14,7 +14,7 @@ from conf import parsers
 
 nodes_name = None
 
-best_sink_beta = 0.05
+best_sink_beta = 0.001
 sink_num_iter, sink_eps = 25000, 10 ** (-8)
 INF_COST = 100
 INF_TIME = 1e10
@@ -22,9 +22,7 @@ INF_TIME = 1e10
 
 def get_times_inverse_func(capacity, times, rho=0.15, mu=0.25):
     capacities = capacity.to_numpy()
-    # FIXME  IS IT A BUG???
-    freeflowtimes = times  # graph_table['free_flow_time'].to_numpy()
-    # print('hm: ', np.power(times / freeflowtimes, mu))
+    freeflowtimes = times
     return np.transpose((capacities / rho) * (np.power(times / freeflowtimes, mu) - 1.0))
 
 
@@ -57,27 +55,22 @@ if __name__ == '__main__':
 
     L, W, people_num = get_LW(L_dict, W_dict, new_to_old)
     total_od_flow = people_num
+
     print(f'L, W, people_num {L, W, people_num}, total_od_flow: {total_od_flow}')
-
     model = md.Model(graph_data, empty_corr_dict, total_od_flow, mu=0.25)
-
     T_dict = handler.get_T_from_t(graph_data['graph_table']['free_flow_time'],
                                   graph_data, model)
     T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
-    if parsers == 'vladik':
-        best_sink_beta = T.shape[0] / np.nansum(T)
-
-    for ms_i in range(5):
+    for ms_i in range(12):
 
         print('iteration: ', ms_i)
 
         s = skh.Sinkhorn(L, W, people_num, sink_num_iter, sink_eps)
         T = np.nan_to_num(T, nan=0, posinf=0, neginf=0)
 
-        # best_sink_beta = T.shape[0] / np.nansum(T)
-
         cost_matrix = np.nan_to_num(T * best_sink_beta, nan=INF_COST)
+
         print('cost matrix', cost_matrix)
         rec, _, _ = s.iterate(cost_matrix)
         print('rec', rec, np.sum(rec))
@@ -100,8 +93,9 @@ if __name__ == '__main__':
 
         model.graph.update_flow_times(result['times'])
 
-        print('flows: ', result['flows'])
-        print('times: ', result['times'])
+        print(result.keys(), np.shape(result['flows']))
+        for flow, time in zip(result['flows'], result['times']):
+            print('flow, time: ', flow, time)
 
         T_dict = result['zone travel times']
         T = handler.T_matrix_from_dict(T_dict, rec.shape, old_to_new)
@@ -110,27 +104,9 @@ if __name__ == '__main__':
 
         subg = result['subg']
 
-        if max_iter == 2:
-
-            np.savetxt('KEV_res/multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
-            np.savetxt('KEV_res/multi/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
-            np.savetxt('KEV_res/multi/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
-            np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
-                       delimiter=' ')
-            np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')
-
-        elif max_iter == 1:
-            print('Mistake, should be 2! Counter in ustm starts from 1!')
-
-        else:
-            np.savetxt('KEV_res/iter/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
-            np.savetxt('KEV_res/iter/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
-            np.savetxt('KEV_res/iter/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
-            np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
-                       delimiter=' ')
-            np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')
-
-    with open('KEV_res/' + 'result.csv', 'w') as f:
-        w = csv.DictWriter(f, result.keys())
-        w.writeheader()
-        w.writerow(result)
+        np.savetxt('KEV_res/multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
+        np.savetxt('KEV_res/multi/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
+        np.savetxt('KEV_res/multi/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
+        np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
+                    delimiter=' ')
+        np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')

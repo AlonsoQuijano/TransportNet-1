@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import transport_graph as tg
 import copy
-import graph_tool.topology as gtt
 
 import conf
 
@@ -35,9 +34,7 @@ class DataHandler:
         df_inv.columns = ['term_node', 'init_node', 'capacity', 'free_flow_time']  # make graph effectively undirected
         df = df.append(df_inv, ignore_index=True)
         df = df[df.capacity > 0]
-        print('shape before drop', df.shape)
         df.drop_duplicates(inplace=True)
-        print('shape after drop', df.shape)
 
         nodes = pd.read_csv('../data/vl_nodes.txt', sep='\t', skiprows=0).set_index('node')
         xa, xb, ya, yb = [], [], [], []
@@ -129,7 +126,6 @@ class DataHandler:
         graph_data['nodes number'] = len(set(gt.init_node.values) | set(gt.term_node.values))
         graph_data['links number'] = gt.shape[0]
         graph_data['nodes_table'] = nt
-
         return graph_data
 
     @staticmethod
@@ -168,7 +164,6 @@ class DataHandler:
 
     @staticmethod
     def T_matrix_from_dict(T_dict, shape, old_to_new):
-        print('fill T')
         T = np.zeros(shape)
         for key in T_dict.keys():
             source, target = old_to_new[key[0]], old_to_new[key[1]]
@@ -216,7 +211,6 @@ class DataHandler:
         return C
 
     def reindexed_empty_corr_matrix(self, corr_dict):
-        # print('corr_dict:', corr_dict)
         indexes = list(set(corr_dict.keys()) | set(sum([d['targets'] for d in corr_dict.values()], [])))
 
         n = len(indexes)
@@ -284,19 +278,15 @@ class DataHandler:
     def get_T_from_t(self, t, graph_data, model):
         zone_travel_times = {}
 
-        inds_to_nodes, graph_correspondences_, graph_table_ = model.inds_to_nodes.copy(), model.graph_correspondences.copy(), model.graph_table.copy()
-        print(graph_table_)
-        print(graph_correspondences_)
+        inds_to_nodes, graph_correspondences_, graph_table_ = model.inds_to_nodes.copy(), \
+                                                              model.graph_correspondences.copy(), \
+                                                              model.graph_table.copy()
 
-        # print('data handler: ', len(inds_to_nodes), graph_data['links number'])
         graph_dh = tg.TransportGraph(graph_table_, len(inds_to_nodes), graph_data['links number'])
 
         for i, source in enumerate(graph_correspondences_):
             targets = graph_correspondences_[source]['targets']
             travel_times, _ = graph_dh.shortest_distances(source, targets, t)
-            print(i, 'travel_times', travel_times)
-            # print('in model.py, travel_times: ', travel_times)
-            # mapping nodes' indices to initial nodes' names:
             source_nodes = [inds_to_nodes[source]] * len(targets)
             target_nodes = list(map(inds_to_nodes.get, targets))
             zone_travel_times.update(zip(zip(source_nodes, target_nodes), travel_times))
