@@ -12,9 +12,10 @@ import conf
 
 pd.set_option('display.max_columns', None)
 
-TNTP_TRIPS_FNAME = '../data/Custom_trips.tntp'  # '../data/SiouxFalls_trips.tntp'
-TNTP_NET_FNAME = '../data/Custom_trips.tntp'  # '../data/SiouxFalls_net.tntp'
-
+# TNTP_TRIPS_FNAME = '../data/Custom_trips.tntp'  #
+TNTP_TRIPS_FNAME = '../data/SiouxFalls_trips.tntp'
+# TNTP_NET_FNAME = '../data/Custom_trips.tntp'
+TNTP_NET_FNAME = '../data/SiouxFalls_net.tntp'
 
 # TODO: DOCUMENTATION!!!
 class DataHandler:
@@ -177,8 +178,13 @@ class DataHandler:
         return L_dict, W_dict
 
     @staticmethod
-    def save_input_data_to_res(graph_data, L_dict, W_dict):
-        root = 'KEV_res/input_data/'
+    def save_input_data_to_res(graph_data, L_dict, W_dict, tax_enabled = None):
+        if tax_enabled is None:
+            root = 'KEV_res/input_data/'
+        elif  tax_enabled:
+            root = 'KEV_res_taxes/input_data/'
+        else:
+            root = 'KEV_res_no_taxes/input_data/'
         with open(root + 'graph_data.pickle', 'wb') as fp:
             pickle.dump(graph_data, fp)
         with open(root + 'L_dict.json', 'w') as fp:

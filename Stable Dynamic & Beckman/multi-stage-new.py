@@ -18,7 +18,7 @@ best_sink_beta = 0.001
 sink_num_iter, sink_eps = 25000, 10 ** (-8)
 INF_COST = 100
 INF_TIME = 1e10
-
+USE_TAXES = True
 
 def get_times_inverse_func(capacity, times, rho=0.15, mu=0.25):
     capacities = capacity.to_numpy()
@@ -42,7 +42,7 @@ if __name__ == '__main__':
                                       columns=['init_node', 'term_node', 'capacity', 'free_flow_time'])
 
     L_dict, W_dict = handler.GetLW_dicts(eval(f'handler.{parsers}_corr_parser'))
-    handler.save_input_data_to_res(graph_data, L_dict, W_dict)
+    handler.save_input_data_to_res(graph_data, L_dict, W_dict, USE_TAXES)
 
     handler = dh.DataHandler()
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
                                   graph_data, model)
     T = handler.T_matrix_from_dict(T_dict, empty_corr_matrix.shape, old_to_new)
 
-    for ms_i in range(12):
+    for ms_i in range(114):
 
         print('iteration: ', ms_i)
 
@@ -87,9 +87,9 @@ if __name__ == '__main__':
             solver_kwargs = {'eps_abs': eps_abs,
                              'max_iter': max_iter}
 
-            result = model.find_equilibrium(solver_name='ustm', composite=True,
+            result = model.find_equilibrium(solver_name='wda', composite=True,
                                             solver_kwargs=solver_kwargs,
-                                            base_flows=alpha * graph_data['graph_table']['capacity'])
+                                            base_flows=alpha * graph_data['graph_table']['capacity'], use_taxes=USE_TAXES)
 
         model.graph.update_flow_times(result['times'])
 
@@ -104,9 +104,13 @@ if __name__ == '__main__':
 
         subg = result['subg']
 
-        np.savetxt('KEV_res/multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
-        np.savetxt('KEV_res/multi/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
-        np.savetxt('KEV_res/multi/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
-        np.savetxt('KEV_res/multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
-                    delimiter=' ')
-        np.savetxt('KEV_res/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')
+        if USE_TAXES:
+            root = 'KEV_res_taxes/'
+        else:
+            root = 'KEV_res_no_taxes/'
+        np.savetxt(root + 'multi/flows/' + str(ms_i) + '_flows.txt', result['flows'], delimiter=' ')
+        np.savetxt(root + 'multi/times/' + str(ms_i) + '_time.txt', result['times'], delimiter=' ')
+        np.savetxt(root + 'multi/corr_matrix/' + str(ms_i) + '_corr_matrix.txt', rec, delimiter=' ')
+        np.savetxt(root + 'multi/inverse_func/' + str(ms_i) + '_inverse_func.txt', flows_inverse_func,
+                   delimiter=' ')
+        np.savetxt(root + '/multi/subg/' + str(ms_i) + '_nabla_func.txt', subg, delimiter=' ')

@@ -52,7 +52,7 @@ class Model:
         inds_to_nodes = dict(zip(range(len(nodes)), nodes))
         return inds_to_nodes, correspondences, table
 
-    def find_equilibrium(self, solver_name='ustm', composite=True, solver_kwargs={}, base_flows=None):
+    def find_equilibrium(self, solver_name='ustm', composite=True, solver_kwargs={}, base_flows=None, use_taxes=False):
         if solver_name == 'fwm':
             solver_func = fwm.frank_wolfe_method
             starting_msg = 'Frank-Wolfe method...'
@@ -81,8 +81,12 @@ class Model:
 
         phi_big_oracle = oracles.PhiBigOracle(self.graph, self.graph_correspondences)
 
-        h_oracle = oracles.HOracle(self.graph.initial_times, self.graph.capacities,
-                                   rho=self.rho, mu=self.mu)
+        if use_taxes:
+            h_oracle = oracles.HTaxesOracle(self.graph.initial_times, self.graph.capacities,
+                                            rho=self.rho, mu=self.mu)
+        else:
+            h_oracle = oracles.HOracle(self.graph.initial_times, self.graph.capacities,
+                                       rho=self.rho, mu=self.mu)
         primal_dual_calculator = dfc.PrimalDualCalculator(phi_big_oracle, h_oracle,
                                                           self.graph.initial_times, self.graph.capacities,
                                                           rho=self.rho, mu=self.mu, base_flows=base_flows)
@@ -123,6 +127,13 @@ class Model:
         subg_t = phi_big_oracle.grad(result['times'])
         # print('att! ', subg_t, np.shape(subg_t))
         result['subg'] = subg_t
+
+        if use_taxes:
+            if self.mu == 0:
+                result['taxes'] = result['times'] - self.graph.initial_times
+            else:
+                result['taxes'] = self.rho * self.graph.initial_times / self.mu * \
+                                  (result['flows'] / self.graph.capacities) ** (1 / self.mu)
 
         for source in self.graph_correspondences:
             targets = self.graph_correspondences[source]['targets']

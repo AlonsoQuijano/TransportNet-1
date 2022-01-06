@@ -8,19 +8,37 @@ from glumpy.transforms import Position, OrthographicProjection, PanZoom, Viewpor
 from numpy.random import random
 import pandas as pd
 
-res_root = 'Stable Dynamic & Beckman/KEV_res/'
+SCALE_UP = 10000
+
+res_root = 'Stable Dynamic & Beckman/KEV_res_no_taxes/'
 
 with open(res_root + 'input_data/graph_data.pickle', 'rb') as fp:
     graph_data = pickle.load(fp)
 
+metadata=[]
+node_file = "data/SiouxFalls_node.tntp"
+dtypes = {'Node': np.int32, 'X': np.float64, 'Y': np.float64}
+
+node_df = pd.read_csv(node_file, dtype=dtypes, sep=r'[\s;]+',
+                         engine='python',
+                         index_col='Node')
+
+graph_data['nodes_table'] = node_df
+
 links = graph_data['graph_table']
 
-flows = np.loadtxt(res_root + 'multi/flows/1_flows.txt', delimiter = ' ')
+flows = np.loadtxt(res_root + 'multi/flows/113_flows.txt', delimiter = ' ')
 # flows = np.abs(np.loadtxt(res_root + 'multi/times/30_time.txt', delimiter = ' ') - np.loadtxt(res_root + 'multi/times/0_time.txt', delimiter = ' '))
 links['flow'] = flows
-
-links.flow /= links.flow.max()
+links.flow /= 0.7 * links.capacity
+# links.flow /= max(1., links.flow.max())
 # links = links[::10]
+# print( node_df['X'][links.init_node.values].values)
+links.insert(1, "xa", SCALE_UP * node_df['X'][links.init_node.values].values)
+links.insert(1, "xb", SCALE_UP * node_df['X'][links.term_node.values].values)
+links.insert(1, "ya", SCALE_UP * node_df['Y'][links.init_node.values].values)
+links.insert(1, "yb", SCALE_UP * node_df['Y'][links.term_node.values].values)
+
 dx, dy = links.xa.mean(), links.ya.mean()
 links.xa -= dx
 links.xb -= dx
@@ -37,8 +55,8 @@ with open(res_root + 'input_data/L_dict.json', 'r') as fp:
 sx, sy = [], []
 for source in L_dict:
     n = int(source)
-    sx.append(nodes.x[n])
-    sy.append(nodes.y[n])
+    sx.append(nodes.X[n])
+    sy.append(nodes.Y[n])
 
 sx, sy = np.array(sx), np.array(sy)
 
@@ -79,7 +97,7 @@ N = np.random.uniform(0, 800, (n,3)) * (1,1,0)
 markers = MarkerCollection(marker='disc', transform=transform, viewport=viewport)
 # markers.append(N, size=15, linewidth=2, itemsize=1,
 #                fg_color=(0,0,0,1), bg_color=(0,0,0,1))
-markers.append(np.array([sx, sy, np.zeros(len(sx))]).T, size=10, linewidth=2,
+markers.append(np.array([sx, sy, np.zeros(len(sx))]).T, size=10 * SCALE_UP, linewidth=2,
                fg_color=(1,1,0,1), bg_color=(1,.5,.5,1))
 
 segments['antialias'] = 1

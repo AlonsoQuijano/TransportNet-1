@@ -24,7 +24,7 @@ def get_tree_order(nodes_number, targets, pred_arr):
                 vertex = pred_arr[vertex]
         temp.extend(sorted_vertices)
         sorted_vertices = temp
-        
+
     return sorted_vertices
 
 """
@@ -41,17 +41,17 @@ def get_tree_order(nodes_number, targets, pred_arr):
                 temp.append(vertex)
                 vertex = pred_arr[vertex]
         sorted_vertices[0:0] = temp
-        
+
     return sorted_vertices
 """
 
 @njit
-def get_flows(nodes_number, edges_number, targets, target_flows, 
+def get_flows(nodes_number, edges_number, targets, target_flows,
               pred_arr, sorted_vertices, pred_to_edges, t_parameter):
     flows = np.zeros(edges_number, dtype = np.float_)
     vertex_flows = np.zeros(nodes_number, dtype = np.float_)
     vertex_flows[targets] = target_flows
-    
+
     for vertex in sorted_vertices:
         pred = pred_arr[vertex]
         edges = pred_to_edges[vertex][pred]
@@ -76,7 +76,7 @@ class BaseOracle(object):
         Computes the gradient at point x.
         """
         raise NotImplementedError('Grad oracle is not implemented.')
-        
+
     def prox(self, p, A, x_start = None):
         """
             Calculates prox of the function f(x) at point p:
@@ -84,30 +84,30 @@ class BaseOracle(object):
             p - point
             Q - feasible set
             A - constant
-            x_start - start point for iterative minimization method 
+            x_start - start point for iterative minimization method
         """
         raise NotImplementedError('Prox of the function is not implemented.')
-        
+
     def __add__(self, other):
         return AdditiveOracle(self, other)
 
-        
+
 class AdditiveOracle(BaseOracle):
     def __init__(self, *oracles):
         self.oracles = oracles
-                 
+
     def func(self, x):
         func = 0
         for oracle in self.oracles:
             func += oracle.func(x)
         return func
-        
+
     def grad(self, x):
         grad = np.zeros(len(x))
         for oracle in self.oracles:
             grad += oracle.grad(x)
         return grad
-    
+
     @property
     def time(self): #getter
         return np.sum([oracle.time for oracle in self.oracles])
@@ -125,38 +125,38 @@ class AutomaticOracle(BaseOracle):
 
         self.corr_targets = np.array(source_correspondences['targets'])
         self.corr_values = np.array(source_correspondences['corrs'])
-        
+
         self.pred_to_edges = pred_to_edges
-        
+
         self.flows = None
         self.distances = None
-        
+
         self.time = 0
-        
+
     def func(self, t_parameter):
         self.update_shortest_paths(t_parameter)
-        return - np.dot(self.distances, self.corr_values) 
+        return - np.dot(self.distances, self.corr_values)
 
     #correct answer if func calculated flows!
     def grad(self, t_parameter):
         sorted_vertices = get_tree_order(self.graph.nodes_number, self.corr_targets, self.pred_map)
-        flows = get_flows(self.graph.nodes_number, self.graph.links_number, 
-                          self.corr_targets, self.corr_values, 
+        flows = get_flows(self.graph.nodes_number, self.graph.links_number,
+                          self.corr_targets, self.corr_values,
                           self.pred_map, sorted_vertices, self.pred_to_edges, t_parameter)
         return - flows
-        
+
     def update_shortest_paths(self, t_parameter):
         tic = time.time()
         self.distances, self.pred_map = self.graph.shortest_distances(self.source, self.corr_targets, t_parameter)
         self.time += time.time() - tic
-        
+
     def update_potentials(self, t_parameter):
         distances, _ = self.graph.shortest_distances(self.source, None, t_parameter)
         max_dist = np.max(distances[np.nonzero(np.isfinite(distances))])
         self.potentials = np.where(np.isinf(distances), max_dist, distances)
         self.diff_potentials = self.potentials[self.graph.terms] - self.potentials[self.graph.inits]
 
-        
+
 def get_pred_to_edges(graph):
     pred_to_edges = List()
     dtype = graph.edges.dtype
@@ -172,7 +172,7 @@ def get_pred_to_edges(graph):
         for source in temp_dict:
             pred_to_edges_cur[source] = np.array(temp_dict[source], dtype = dtype)
         pred_to_edges.append(pred_to_edges_cur)
-        
+
     return pred_to_edges
 
 
@@ -186,16 +186,16 @@ class PhiBigOracle(BaseOracle):
         else:
             self.processes_number = len(correspondences)
         self.t_current = self.func_current = self.grad_current = None
-        
+
         if not PhiBigOracle.pred_to_edges:
-            print('calculating pred to edges') 
+            print('calculating pred to edges')
             PhiBigOracle.pred_to_edges = get_pred_to_edges(graph)
-        
+
         self.auto_oracles = []
         for source, source_correspondences in self.correspondences.items():
             self.auto_oracles.append(AutomaticOracle(source, self.graph, source_correspondences, PhiBigOracle.pred_to_edges))
         self.time = 0.0
-    
+
     def _reset(self, t_parameter):
         tic = time.time()
         self.t_current = t_parameter
@@ -205,12 +205,12 @@ class PhiBigOracle(BaseOracle):
             self.func_current += auto_oracle.func(self.t_current)
             self.auto_oracles_time += auto_oracle.time
         self.time += time.time() - tic
-    
+
     def func(self, t_parameter):
         if self.t_current is None or np.any(self.t_current != t_parameter):
             self._reset(t_parameter)
         return self.func_current
-            
+
     def grad(self, t_parameter):
         if self.t_current is None or np.any(self.t_current != t_parameter):
             self._reset(t_parameter)
@@ -224,7 +224,7 @@ class PhiBigOracle(BaseOracle):
         self.time += time.time() - tic
         return self.grad_current
 
-    
+
 #Newton's method for HOracle
 @njit
 def newton(x_0_arr, a_arr, mu,
@@ -259,47 +259,47 @@ def der_f(x, x_0, a, mu):
     return 1.0 + a * mu * x ** (mu - 1)
 
 class HOracle(BaseOracle):
-    def __init__(self, freeflowtimes, capacities, rho = 10.0, mu = 0.25):  
+    def __init__(self, freeflowtimes, capacities, rho = 10.0, mu = 0.25):
         self.links_number = len(freeflowtimes)
         self.rho = rho
         self.mu = mu
         self.freeflowtimes = np.copy(freeflowtimes)
         self.capacities = np.copy(capacities)
-        
+
         self.time = 0
-    
-    def func(self, t_parameter): 
+
+    def func(self, t_parameter):
         """
         Computes value of the function h(times) = \sum_i sigma^*(times[i])
         """
         if self.mu == 0:
             h_func = np.dot(self.capacities, np.maximum(t_parameter - self.freeflowtimes,0))
         else:
-            h_func = np.sum(self.capacities * (t_parameter - self.freeflowtimes) * 
-                                      (np.maximum(t_parameter - self.freeflowtimes, 0.0) / 
+            h_func = np.sum(self.capacities * (t_parameter - self.freeflowtimes) *
+                                      (np.maximum(t_parameter - self.freeflowtimes, 0.0) /
                                        (self.rho * self.freeflowtimes)) ** self.mu) / (1.0 + self.mu)
         return h_func
-    
+
     def conjugate_func(self, flows):
         """
         Computes the conjugate of the function h(t):
         h^*(flows) = \sum_i sigma(flows[i]), since h(t) is a separable function
         """
         if self.mu == 0:
-            return np.dot(self.freeflowtimes, flows) 
+            return np.dot(self.freeflowtimes, flows)
         else:
-            return np.dot(self.freeflowtimes * flows, 
-                          self.rho * self.mu / (1.0 + self.mu) * 
+            return np.dot(self.freeflowtimes * flows,
+                          self.rho * self.mu / (1.0 + self.mu) *
                           (flows / self.capacities) ** (1.0 / self.mu) + 1.0)
-    
+
     def grad(self, t_parameter):
         if self.mu == 0:
             h_grad = self.capacities
         else:
-            h_grad = self.capacities * (np.maximum(t_parameter - self.freeflowtimes, 0.0) / 
+            h_grad = self.capacities * (np.maximum(t_parameter - self.freeflowtimes, 0.0) /
                                        (self.rho * self.freeflowtimes)) ** self.mu
         return h_grad
-    
+
     def prox(self, grad, point, A):
         """
         Computes argmin_{t: t \in Q} <g, t> + A / 2 * ||t - p||^2 + h(t)
@@ -323,4 +323,71 @@ class HOracle(BaseOracle):
                    a_arr = self.capacities / (A * self.rho * self.freeflowtimes),
                    mu = self.mu)
         argmin = (1 + self.rho * x) * self.freeflowtimes
+        return argmin
+
+
+class HTaxesOracle(BaseOracle):
+    def __init__(self, freeflowtimes, capacities, rho = 10.0, mu = 0.25):
+        self.links_number = len(freeflowtimes)
+        self.rho = rho
+        self.mu = mu
+        self.freeflowtimes = np.copy(freeflowtimes)
+        self.capacities = np.copy(capacities)
+
+        self.time = 0
+
+    def func(self, t_parameter):
+        """
+        Computes value of the function h(times) = \sum_i sigma^*(times[i])
+        """
+        if self.mu == 0:
+            h_func = np.dot(self.capacities, np.maximum(t_parameter - self.freeflowtimes,0))
+        else:
+            h_func = np.sum(self.capacities *
+                            (self.mu / (self.rho * self.freeflowtimes)) ** self.mu *
+                            (np.maximum(t_parameter - self.freeflowtimes, 0.0) / (self.mu + 1)) ** (self.mu + 1))
+        return h_func
+
+    def conjugate_func(self, flows):
+        """
+        Computes the conjugate of the function h(t):
+        h^*(flows) = \sum_i sigma(flows[i]), since h(t) is a separable function
+        """
+        if self.mu == 0:
+            return np.dot(self.freeflowtimes, flows)
+        else:
+            return np.dot(self.freeflowtimes * flows,
+                          self.rho * (flows / self.capacities) ** (1.0 / self.mu) + 1.0)
+
+    def grad(self, t_parameter):
+        if self.mu == 0:
+            h_grad = self.capacities
+        else:
+            h_grad = self.capacities * (self.mu / (self.mu + 1) * np.maximum(t_parameter - self.freeflowtimes, 0.0) /
+                                       (self.rho * self.freeflowtimes)) ** self.mu
+        return h_grad
+
+    def prox(self, grad, point, A):
+        """
+        Computes argmin_{t: t \in Q} <g, t> + A / 2 * ||t - p||^2 + h(t)
+        where Q - the feasible set {t: t >= free_flow_times},
+              A - constant, g - (sub)gradient vector, p - point at which prox is calculated
+        """
+        #rewrite as A/2 ||t - p_new||^2 + h(t)
+        point_new = point - grad / A
+        if self.mu == 0:
+            return np.maximum(point_new - self.capacities / A, self.freeflowtimes)
+        elif self.mu == 1:
+            pass
+        elif self.mu == 0.5:
+            pass
+        elif self.mu == 0.25:
+            pass
+        #rewrite as x - x_0 + a x^mu = 0, x >= 0
+        #where x = (t - bar{t})/(bar{t} * rho), x_0 = (p_new - bar{t})/(bar{t} * rho),
+        #      a = bar{f} / (A * bar{t} * rho)
+        x = newton(x_0_arr = (point_new - self.freeflowtimes) * self.mu / (self.rho * self.freeflowtimes * (self.mu + 1)),
+                   a_arr = self.capacities * self.mu / (A * self.rho * self.freeflowtimes * (self.mu + 1)),
+                   mu = self.mu)
+        argmin = (1 + self.rho * x * (self.mu + 1) / self.mu) * self.freeflowtimes
         return argmin
